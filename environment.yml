@@ -1,0 +1,26 @@
+# - Setup file for Anaconda environments in support of the darksun package
+# ! This file is temporary, during development will be substituted by a `project.toml` script
+
+name: darksun
+
+channels:
+  - anaconda
+#  - pytorch
+#  - nvidia
+  - conda-forge
+  - defaults
+
+# - these dependencies and their version may change during development
+dependencies:
+  - python=3.12
+  - numpy=2.0.1
+  - matplotlib=3.9.2
+  - scipy=1.14.1
+  - astropy=7.0.0
+  - pandas=2.2.2
+  - reproject=0.14.1
+
+# to add:
+#   - scikit-learn
+#   - pytorch=2.5.1
+#   - pytorch-cuda=12.4
