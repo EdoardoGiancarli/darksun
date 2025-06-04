@@ -54,7 +54,7 @@ For more, take a look at the `darksun` [demo](demo/demo.ipynb) (still in progres
 
 ### Running Tests
 
-Assuming you installed from sources, and your source living into `darksun` directory.
+Assuming you installed from sources, and your source living into the `darksun` directory, run in your terminal:
 
 ```bash
 cd darksun
@@ -63,10 +63,6 @@ python -m unittest
 
 ## Contributing
 
-Contributions are welcome! Before submitting a pull request, ensure all tests are correctly executed. To do so, run in your terminal:
-
-```bash
-python -m unittest`
-```
-
+Contributions are welcome!
+Before submitting a pull request, ensure all tests are correctly executed.
 For bug reports and feature requests, please open an issue.
