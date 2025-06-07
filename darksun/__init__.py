@@ -7,7 +7,7 @@ r"""
          |____/   \__,_| |_|    |_|\_\ |___/  \__,_| |_| |_|
 
 
-Darksun is a bloodmoon package for handling IROS-based analyses.
+Darksun is a `bloodmoon` package for handling IROS-based analyses.
 """
 
 
