@@ -8,6 +8,7 @@ A bloodmoon package for handling IROS-related analyses with the WFM coded mask i
 - Data plotting
 
 > ⚠️ **Note**: Darksun is under active development. APIs may change between versions.
+> ⚠️ **Note**: The `bloodmoon` source files are present within the package for development sakes, it will be later removed.
 
 
 ## Installation
