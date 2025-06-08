@@ -21,6 +21,7 @@ dependencies:
   - reproject=0.14.1
 
 # to add:
+#   - bloodmoon
 #   - scikit-learn
 #   - pytorch=2.5.1
 #   - pytorch-cuda=12.4
