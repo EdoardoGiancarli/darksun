@@ -6,21 +6,15 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
-from astropy.coordinates import SkyCoord
-from astropy.wcs.utils import fit_wcs_from_points
 from astropy.wcs import WCS
-from reproject import reproject_interp
-from reproject.mosaicking import find_optimal_celestial_wcs
-from reproject.mosaicking import reproject_and_coadd
 import pickle
 
-from bloodmoon.coords import pos2equatorial
 from bloodmoon.io import SimulationDataLoader
 from bloodmoon.io import _exists_valid
-from bloodmoon.mask import CodedMaskCamera
 
 __all__ = [
-    "save_database", "save_sky", "load_database", "load_sky",
+    "save_database", "save_sky", "save_pickle",
+    "load_database", "load_sky", "load_pickle",
 ]
 
 
@@ -81,41 +75,6 @@ def _make_bintable(
     )
     return table
 
-
-def _save_pickle(data: object, save_to: str | Path) -> None:
-    """
-    Saves data in pickle format.
-
-    Args:
-        data (object):
-            Data to save.
-        save_to (str | Path):
-            Path to the directory for saving the pickle file.
-    """
-    print("# Saving data...")
-    with open(save_to, "wb") as handle:
-        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print("# Saving completed!")
-
-
-def _load_pickle(filepath: str | Path) -> object:
-    """
-    Loads data from pickle file.
-
-    Args:
-        filepath (str | Path):
-            Path to the pickle file.
-    
-    Returns:
-        output (object): Loaded object.
-    """
-    if _exists_valid(filepath):
-        print("# Loading data...")
-        with open(filepath, "rb") as handle:
-            data = pickle.load(handle)
-        print("# Loading completed!")
-        return data
-
 """
                            @
                           @@@
@@ -171,8 +130,6 @@ def save_sky(
             World Coordinate System instance, which can be used to
             include coordinate information in the FITS header.
     """
-
-    sky, snr = np.int32(sky), np.float32(snr)
     print("# Saving sky...")
     # HDU list and Primary Header
     hdu_list = fits.HDUList([])
@@ -180,7 +137,10 @@ def save_sky(
     hdu_list.append(primary_hdu)
 
     # Images for data
-    for img, name in zip([sky, snr], ["sky", "snr"]):
+    for img, name in zip(
+        [np.int32(sky), np.float32(snr)],
+        ["sky", "snr"],
+    ):
         image_hdu = fits.ImageHDU(
             data=img,
             header=sdl.header,
@@ -191,6 +151,22 @@ def save_sky(
     
     hdu_list.writeto(save_to, output_verify="fix+ignore")
     hdu_list.close()
+    print("# Saving completed!")
+
+
+def save_pickle(data: object, save_to: str | Path) -> None:
+    """
+    Saves data in pickle format.
+
+    Args:
+        data (object):
+            Data to save.
+        save_to (str | Path):
+            Path to the directory for saving the pickle file.
+    """
+    print("# Saving data...")
+    with open(save_to, "wb") as handle:
+        pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("# Saving completed!")
 
 """
@@ -241,6 +217,25 @@ def load_sky(filepath: str | Path) -> tuple[np.array]:
         sky, snr = load_data(filepath)
         print("# Loading completed!")
         return sky, snr
+
+
+def load_pickle(filepath: str | Path) -> object:
+    """
+    Loads data from pickle file.
+
+    Args:
+        filepath (str | Path):
+            Path to the pickle file.
+    
+    Returns:
+        output (object): Loaded object.
+    """
+    if _exists_valid(filepath):
+        print("# Loading data...")
+        with open(filepath, "rb") as handle:
+            data = pickle.load(handle)
+        print("# Loading completed!")
+        return data
 
 
 # end
