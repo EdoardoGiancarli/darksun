@@ -5,8 +5,6 @@ Tests for data logging.
 import unittest
 from unittest import TestCase
 
-import numpy as np
-
 from darksun.types import LogEntry
 from darksun.data import create_log
 

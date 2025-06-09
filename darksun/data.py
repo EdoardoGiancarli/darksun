@@ -303,7 +303,7 @@ def get_catalogue(
 
 def fit_WCS(
     camera: CodedMaskCamera,
-    sdl: SimulationDataLoader,
+    sdl: DataLoader,
     pixels: list[tuple[int, int]] = None,
     grid_step: int = 200,
 ) -> WCS:
@@ -314,8 +314,8 @@ def fit_WCS(
     Args:
         camera (CodedMaskCamera):
             CodedMaskCamera instance used for imaging and reconstruction.
-        sdl (SimulationDataLoader):
-            SimulationDataLoader instance for the given camera.
+        sdl (DataLoader):
+            DataLoader instance for the given camera.
         pixels (list[tuple[int, int]], optional (default=None)):
             List of pixels position (row, col) for the WCS fit.
         grid_step (int, optional (default=200)):
