@@ -44,6 +44,7 @@ class Log:
     Attributes:
         camA_ID (str): WFM camera A ID.
         camB_ID (str): WFM camera B ID.
+        log (dict | None): Log structure (initialized to `None`).
     """
     def __init__(
         self,
@@ -52,6 +53,11 @@ class Log:
     ) -> None:
         self.cams = (camA_ID, camB_ID)
         self._log = None
+    
+    @property
+    def log(self):
+        """Log structure."""
+        return self._log
     
     def _template(self, frmt: str, unit: str) -> dict:
         """Data entry template."""
@@ -119,6 +125,8 @@ def create_log(*, camA_ID: str, camB_ID: str) -> Log:
         output (Log):
             Log instance containing the initialized log structure.
     """
+    if not (isinstance(camA_ID, str) and isinstance(camB_ID, str)):
+        raise ValueError("Both 'camA_ID' and 'camB_ID' must be of string type.")
     return Log(camA_ID, camB_ID)
 
 
