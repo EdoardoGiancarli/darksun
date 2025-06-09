@@ -21,8 +21,8 @@ __all__ = [
 def _make_column(
     name: str,
     data: np.array,
-    frmt: str = None,
-    unit: str = None,
+    frmt: str,
+    unit: str = "",
 ) -> fits.Column:
     """
     Creates a FITS table column with the specified parameters.
@@ -32,9 +32,9 @@ def _make_column(
             Name of the column.
         data (np.array):
             Data to be stored in the column.
-        frmt (str, optional (default=None)):
+        frmt (str):
             FITS format of the column data.
-        unit (str, optional (default=None)):
+        unit (str, optional (default="")):
             Physical unit of the column data.
 
     Returns:
