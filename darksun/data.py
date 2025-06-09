@@ -3,6 +3,7 @@ Module for data handling.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from copy import deepcopy
@@ -10,6 +11,7 @@ from copy import deepcopy
 import numpy as np
 from numpy.typing import NDArray
 from astropy.io import fits
+from astropy.io.fits.fitsrec import FITS_rec
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from astropy.wcs.utils import fit_wcs_from_points
@@ -25,8 +27,13 @@ from bloodmoon.mask import CodedMaskCamera
 
 from .types import LogEntry
 from .filtering import filter_data
+from .filtering import filter_catalog
 
-__all__ = []
+__all__ = [
+    "Log", "create_log", "DataLoader", "get_data",
+    "CatalogueLoader", "get_catalogue", "fit_WCS",
+    "WFMcomposition",
+]
 
 
 class Log:
@@ -130,43 +137,8 @@ def create_log(*, camA_ID: str, camB_ID: str) -> Log:
     return Log(camA_ID, camB_ID)
 
 
-def IROS_log() -> Log:
-    """
-    
-    """
-    raise NotImplementedError
-
-
-def IROS_sources_log() -> Log:
-    """
-    
-    """
-    raise NotImplementedError
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class FlexibleSDL(SimulationDataLoader):
+@dataclass(frozen=True)
+class DataLoader(SimulationDataLoader):
     """
     Container for WFM coded mask simulation data.
 
@@ -187,25 +159,15 @@ class FlexibleSDL(SimulationDataLoader):
             Input photons RA/Dec in [deg] to filter out.
 
     Properties:
-        SDLdata (np.recarray):
-            Photon event data from FITS extension 1.
+        SDLdata (FITS_rec):
+            Photon event data from FITS extension 1, eventually filtered.
     """
-    def __init__(
-        self,
-        filepath: Path,
-        E_min: int | float | None,
-        E_max: int | float | None,
-        coords: CoordEquatorial | Sequence[CoordEquatorial] | None,
-    ) -> None:
-        super().__init__(filepath=filepath)
-
-        self.E_min = E_min
-        self.E_max = E_max
-        self.coords = coords
+    E_min: int | float | None
+    E_max: int | float | None
+    coords: CoordEquatorial | Sequence[CoordEquatorial] | None
     
     @cached_property
-    def SDLdata(self) -> np.recarray:
-        """Photon event data, eventually filtered."""
+    def SDLdata(self) -> FITS_rec:
         if not any((self.E_min, self.E_max, self.coords)):
             return self.data
         
@@ -218,15 +180,15 @@ class FlexibleSDL(SimulationDataLoader):
         )
 
 
-def simulation(
+def get_data(
     filepath: str | Path,
     *,
     E_min: int | float | None = None,
     E_max: int | float | None = None,
     coords: CoordEquatorial | Sequence[CoordEquatorial] | None = None,
-) -> FlexibleSDL:
+) -> DataLoader:
     """
-    Checks validity of filepath and intializes FlexibleSDL.
+    Checks validity of filepath and intializes DataLoader.
 
     Args:
         filepath (Path):
@@ -239,13 +201,13 @@ def simulation(
             Input photons RA/Dec in [deg] to filter out.
 
     Returns:
-        output (FlexibleSDL):
-            FlexibleSDL instance with filterable photons list data.
+        output (DataLoader):
+            DataLoader instance with filterable photons list data.
     """
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
     if _exists_valid(filepath):
-        sdl = FlexibleSDL(
+        sdl = DataLoader(
             filepath=filepath,
             E_min=E_min,
             E_max=E_max,
@@ -254,19 +216,89 @@ def simulation(
         return sdl
 
 
+@dataclass(frozen=True)
+class CatalogueLoader(SimulationDataLoader):
+    """
+    Container for WFM coded mask sources catalog.
+
+    The class provides access to the catalog and instrument configuration
+    from a FITS file containing WFM simulation data for a single camera.
+
+    This class inherits from bloodmoon's `SimulationDataLoader`, and allows
+    for catalog filtering in the brightness and flux channels.
+
+    Attributes:
+        filepath (Path):
+            Path to the FITS file.
+        n (int | tuple[int, int]):
+            Filtered interval of sources, up to the n-th brightest
+            source or from `n[0]` to `n[1]` if `n` is a tuple.
+        F_min (int | float | None):
+            Minimum flux range in [ph/cm2/s] for the data filtering.
+        F_max (int | float | None):
+            Maximum flux range in [ph/cm2/s] for the data filtering.
+
+    Properties:
+        SDLdata (FITS_rec):
+            Catalog data from FITS extension 1, eventually filtered.
+    """
+    n: int | tuple[int, int] | None
+    F_min: int | float | None
+    F_max: int | float | None
+    
+    @cached_property
+    def SDLdata(self) -> FITS_rec:
+        if not any((self.n, self.F_min, self.F_max)):
+            return self.data
+        
+        rec = deepcopy(self.data)
+        flux_range = (self.F_min, self.F_max) if any((self.F_min, self.F_max)) else None
+        return filter_catalog(
+            catalog=rec,
+            n=self.n,
+            flux_range=flux_range,
+        )
 
 
+def get_catalogue(
+    filepath: str | Path,
+    *,
+    n: int | tuple[int, int] | None = None,
+    flux_range: tuple[int | float | None, int | float | None] | None = None,
+) -> CatalogueLoader:
+    """
+    Checks validity of filepath and intializes CatalogueLoader.
 
+    Args:
+        filepath (Path):
+            Path to the FITS file.
+        n (int | tuple[int, int] | None, optional (default=None)):
+            Filtered interval of sources, up to the n-th brightest
+            source or from `n[0]` to `n[1]` if `n` is a tuple.
+        flux_range (tuple[int | float | None, int | float | None] | None, optional (default=None)):
+            Flux range in ph/cm2/s for the data filtering. The
+            input tuple is interpreted as (`F_min`, `F_max`).
 
-
-
-
-
-
-
-
-
-
+    Returns:
+        output (CatalogueLoader):
+            CatalogueLoader instance with filterable sources catalog.
+    """
+    if not isinstance(filepath, Path):
+        filepath = Path(filepath)
+    
+    if _exists_valid(filepath):
+        if n and flux_range:
+            raise ValueError("Specify either 'n' or 'flux_range' to filter the catalog.")
+        if flux_range is None:
+            flux_range = (None, None)
+        
+        sdl = CatalogueLoader(
+            filepath=filepath,
+            n=n,
+            F_min=flux_range[0],
+            F_max=flux_range[1],
+        )
+        return sdl
 
 
 def fit_WCS(
@@ -350,6 +382,9 @@ def WFMcomposition(
         - If the WCS fit keys are not present in the camera skies headers,
           a TypeError will be raised from `find_optimal_celestial_wcs()`:
         >>> TypeError: "WCS does not have celestial components."
+    
+    TODO:
+        - optimize/improve array composition
     """
     with fits.open(skyA_path) as hduA, fits.open(skyB_path) as hduB:
         skies = (hduA[1], hduB[1])
