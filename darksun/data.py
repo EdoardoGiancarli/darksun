@@ -98,6 +98,7 @@ class Log:
                 Log structure with the parameter entries for the two WFM cameras.
         """
         self._log = self._make_log(params)
+        self.params = params
         return self._log
     
     def update(
@@ -119,22 +120,36 @@ class Log:
             self._log[cameraID][entry]["data"].append(value)
 
 
-def create_log(*, camA_ID: str, camB_ID: str) -> Log:
+def create_log(
+    *,
+    camA_ID: str,
+    camB_ID: str,
+    params: Sequence[LogEntry],
+) -> Log:
     """
-    Initializes a Log instance to manage the logging of
-    IROS parameters for the specified WFM cameras.
+    Initializes a Log instance with the given parameters to manage
+    the logging of the IROS procedure for the specified WFM cameras.
 
     Args:
-        camA_ID (str): WFM camera A ID.
-        camB_ID (str): WFM camera B ID.
+        camA_ID (str):
+            WFM camera A ID.
+        camB_ID (str):
+            WFM camera B ID.
+        params (Sequence[LogEntry]):
+            Sequence with the parameter entries for the two WFM cameras.
 
     Returns:
         output (Log):
             Log instance containing the initialized log structure.
+    
+    Raises:
+        ValueError: If `camA_ID` and `camB_ID` are not strings.
     """
     if not (isinstance(camA_ID, str) and isinstance(camB_ID, str)):
         raise ValueError("Both 'camA_ID' and 'camB_ID' must be of string type.")
-    return Log(camA_ID, camB_ID)
+    log = Log(camA_ID, camB_ID)
+    log.initialize(params)
+    return log
 
 
 @dataclass(frozen=True)
