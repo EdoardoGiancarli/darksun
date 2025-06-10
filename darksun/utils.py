@@ -1,5 +1,5 @@
 """
-General utility functions for the bloodmoon package.
+General utility functions for the darksun package.
 """
 
 from typing import Generator, Any

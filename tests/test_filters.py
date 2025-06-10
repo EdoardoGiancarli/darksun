@@ -30,7 +30,7 @@ class TestFilters(TestCase):
             (7, 299.868,  40.733, 39.3),
             (8, 187.706,  12.391, 26.8),
             (9, 123.456, -10.123, 30.4),
-            (10,250.349,  36.467, 47.0),
+            (10, 250.349,  36.467, 47.0),
         ], dtype=[('ID', 'i4'), ('RA', 'f8'), ('DEC', 'f8'), ('ENERGY', 'f4')])
         
         # simulated catalog for single run (e.g., 1ks exposure)

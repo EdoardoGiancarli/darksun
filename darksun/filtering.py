@@ -5,6 +5,8 @@ Data filters for photons energy range, sources flux and sources positions.
 from collections.abc import Sequence
 
 import numpy as np
+from astropy.io.fits.fitsrec import FITS_rec
+
 from bloodmoon.types import CoordEquatorial
 
 __all__ = [
@@ -13,18 +15,18 @@ __all__ = [
 
 
 def filter_data(
-    data: np.recarray,
+    data: FITS_rec,
     *,
     E_min: int | float | None,
     E_max: int | float | None,
     coords: CoordEquatorial | Sequence[CoordEquatorial] | None,
-) -> np.recarray:
+) -> FITS_rec:
     """
     Filters the input `data` record based on the photons energy
     and/or incoming direction.
     
     Args:
-        data (np.recarray):
+        data (FITS_rec):
             Input simulated data container.
         E_min (int | float | None):
             Minimum photons energy in [keV] for the data filtering.
@@ -51,15 +53,15 @@ def filter_data(
 
 
 def flux_filter(
-    data: np.recarray,
+    data: FITS_rec,
     F_min: int | float | None,
     F_max: int | float | None,
-) -> np.recarray:
+) -> FITS_rec:
     """
     Filters the input `data` record based on the sources flux.
     
     Args:
-        data (np.recarray):
+        data (FITS_rec):
             Input simulated data container.
         F_min (int | float | None):
             Minimum flux range in [ph/cm2/s] for the data filtering.
@@ -78,22 +80,22 @@ def flux_filter(
 
 
 def source_filter(
-    data: np.recarray,
+    data: FITS_rec,
     n: int | tuple[int, int],
-) -> np.recarray:
+) -> FITS_rec:
     """
     Select the `n` brightest sources from the input catalog `data`,
     or a given interval of sources.
 
     Args:
-        data (np.recarray):
+        data (FITS_rec):
             Input simulated data container.
         n (int | tuple[int, int]):
             Filtered interval of sources, up to the n-th brightest
             source or from `n[0]` to `n[1]` if `n` is a tuple.
 
     Returns:
-        output (np.recarray): Output filtered data container.
+        output (FITS_rec): Output filtered data container.
     
     Notes:
         - `n` follows the std Python indexing rules.
@@ -104,11 +106,11 @@ def source_filter(
 
 
 def filter_catalog(
-    catalog: np.recarray,
+    catalog: FITS_rec,
     *,
     n: int | tuple[int, int] | None,
     flux_range: tuple[int | float | None, int | float | None] | None = None,
-) -> np.recarray:
+) -> FITS_rec:
     """
     Filters the input `catalog` record based on the sources fluence OR flux.
     If `n` is given, it selects the `n` brightest sources from the input
@@ -116,7 +118,7 @@ def filter_catalog(
     filters the input record for a given flux range.
     
     Args:
-        catalog (np.recarray):
+        catalog (FITS_rec):
             Input simulated data container.
         n (int | tuple[int, int] | None):
             Filtered interval of sources, up to the n-th brightest
@@ -126,7 +128,7 @@ def filter_catalog(
             input tuple is interpreted as (`F_min`, `F_max`).
     
     Returns:
-        output (np.recarray): Output filtered data container.
+        output (FITS_rec): Output filtered data container.
     
     Raises:
         ValueError: If `n` or `flux_range` are both specified for catalogs filtering.
