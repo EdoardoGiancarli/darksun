@@ -52,6 +52,7 @@ class Log:
         camA_ID (str): WFM camera A ID.
         camB_ID (str): WFM camera B ID.
         log (dict | None): Log structure (initialized to `None`).
+        params (Sequence[LogEntry]): Log parameter entries.
     """
     def __init__(
         self,
@@ -91,7 +92,7 @@ class Log:
 
         Args:
             params (Sequence[LogEntry]):
-                Sequence with all the parameter entries for the two WFM cameras.
+                Sequence with the parameter entries for the two WFM cameras.
         
         Returns:
             log (dict):
