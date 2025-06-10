@@ -6,7 +6,7 @@ import unittest
 from unittest import TestCase
 
 from darksun.types import LogEntry
-from darksun.data import create_log
+from darksun.data import Log, create_log
 
 
 class TestLogging(TestCase):
@@ -18,19 +18,20 @@ class TestLogging(TestCase):
 
     def test_init(self):
         """Tests Log instance initialisation."""
-        log = create_log(camA_ID=self.camA, camB_ID=self.camB)
-        self.assertTrue(log.log == None)
-        with self.assertRaises(ValueError):
-            create_log(camA_ID=1, camB_ID=self.camB)
-            create_log(camA_ID=self.camA, camB_ID=6.3)
-            create_log(camA_ID=1, camB_ID=5)
+        log = Log(camA_ID=self.camA, camB_ID=self.camB)
+        self.assertIsNone(log.log)
+        self.assertIsNone(log.params)
     
     def test_log_making(self):
         """Tests Log generation."""
-        log = create_log(camA_ID=self.camA, camB_ID=self.camB)
         params = (
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
+        )
+        log = create_log(
+            camA_ID=self.camA, 
+            camB_ID=self.camB,
+            params=params,
         )
 
         expected = {
@@ -44,11 +45,24 @@ class TestLogging(TestCase):
             },
         }
 
-        log.initialize(params=params)
-        self.assertEqual(
-            log.log,
-            expected,
-        )
+        self.assertEqual(log.log, expected)
+
+        with self.assertRaises(ValueError):
+            create_log(
+                camA_ID=1,
+                camB_ID=self.camB,
+                params=params,
+            )
+            create_log(
+                camA_ID=self.camA,
+                camB_ID=6.3,
+                params=params,
+            )
+            create_log(
+                camA_ID=1,
+                camB_ID=5,
+                params=params,
+            )
     
     def test_log_update(self):
         """
@@ -56,12 +70,15 @@ class TestLogging(TestCase):
             - update procedure
             - independence of camera logs
         """
-        log = create_log(camA_ID=self.camA, camB_ID=self.camB)
         params = (
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
         )
-        log.initialize(params=params)
+        log = create_log(
+            camA_ID=self.camA,
+            camB_ID=self.camB,
+            params=params,
+        )
 
         run = {
             0: {
