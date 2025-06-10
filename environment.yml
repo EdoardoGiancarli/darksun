@@ -5,19 +5,20 @@ name: darksun
 
 channels:
   - anaconda
-#  - pytorch
-#  - nvidia
   - conda-forge
   - defaults
+#  - nvidia
+#  - pytorch
 
 # - these dependencies and their version may change during development
 dependencies:
   - python=3.12
   - numpy=2.0.1
   - matplotlib=3.9.2
+  - tqdm=4.67.1
   - scipy=1.14.1
-  - astropy=7.0.0
   - pandas=2.2.2
+  - astropy=7.0.0
   - reproject=0.14.1
 
 # to add:
