@@ -50,9 +50,9 @@ class Log:
     
     Attributes:
         camA_ID (str):
-            WFM camera A ID.
+            WFM camera A ID (e.g., 'cam1a').
         camB_ID (str):
-            WFM camera B ID.
+            WFM camera B ID (e.g., 'cam1b').
         log (dict | None):
             Log structure (initialized to `None`).
         params (Sequence[LogEntry] | None):
