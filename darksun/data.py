@@ -49,10 +49,14 @@ class Log:
     This structure is repeated for the two cameras of the WFM instrument.
     
     Attributes:
-        camA_ID (str): WFM camera A ID.
-        camB_ID (str): WFM camera B ID.
-        log (dict | None): Log structure (initialized to `None`).
-        params (Sequence[LogEntry]): Log parameter entries.
+        camA_ID (str):
+            WFM camera A ID.
+        camB_ID (str):
+            WFM camera B ID.
+        log (dict | None):
+            Log structure (initialized to `None`).
+        params (Sequence[LogEntry] | None):
+            Log parameter entries (initialized to `None`).
     """
     def __init__(
         self,
@@ -61,11 +65,17 @@ class Log:
     ) -> None:
         self.cams = (camA_ID, camB_ID)
         self._log = None
+        self._params = None
     
     @property
     def log(self):
         """Log structure."""
         return self._log
+    
+    @property
+    def params(self):
+        """Log parameter entries."""
+        return self._params
     
     def _template(self, frmt: str, unit: str) -> dict:
         """Data entry template."""
@@ -99,7 +109,7 @@ class Log:
                 Log structure with the parameter entries for the two WFM cameras.
         """
         self._log = self._make_log(params)
-        self.params = params
+        self._params = params
         return self._log
     
     def update(
