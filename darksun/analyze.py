@@ -3,7 +3,6 @@ IROS output data management and computation.
 """
 
 from collections.abc import Sequence
-from pathlib import Path
 from copy import deepcopy
 
 import numpy as np
@@ -291,6 +290,52 @@ def compute_params(
     log.data2array()
     return log.log
 
+
+def catalog_comparison(
+    data: dict,
+    catalogueA: np.recarray,
+    catalogueB: np.recarray,
+) -> dict:
+    """
+    Compares the reconstructed IROS candidates data with the
+    catalogues containing the simulated sources.
+
+    Args:
+        data (dict): IROS data output from `compute_params()`.
+        catalogueA (np.recarray): Catalogue data for camera A.
+        catalogueB (np.recarray): Catalogue data for camera B.
+
+    Returns:
+        output (dict):
+            Dictionary with the updated entries for the input
+            IROS candidates database, featuring sources IDs
+            and respective catalogues calibrated fluxes.
+    """
+    def candidate_identification(
+        catalog: np.recarray,
+        ra: float,
+        dec: float,
+    ) -> str:
+        """Candidate association from catalogue."""
+        pass
+
+    def candidate_in_db(cameraID: str, name: str) -> bool:
+        """Checks if a candidate is stored in the database."""
+        if name in data[cameraID]["catalog_name"]["data"]:
+            return True
+        return False
+    
+    def remove_candidate(cameraID: str, arg: int) -> None:
+        """Removes repeting candidate based on significance."""
+        pass
+
+    catalogues = (catalogueA, catalogueB)
+    fake_sources = ["gctr_diffuse"]
+
+    print("# Comparing with Catalogues...")
+    ...
+    print("# Successful comparison!")
+    return deepcopy(data)
 
 
 # end
