@@ -185,7 +185,7 @@ class DataLoader(SimulationDataLoader):
             Input photons RA/Dec in [deg] to filter out.
 
     Properties:
-        SDLdata (FITS_rec):
+        DLdata (FITS_rec):
             Photon event data from FITS extension 1, eventually filtered.
     """
     E_min: int | float | None
@@ -193,7 +193,7 @@ class DataLoader(SimulationDataLoader):
     coords: CoordEquatorial | Sequence[CoordEquatorial] | None
     
     @cached_property
-    def SDLdata(self) -> FITS_rec:
+    def DLdata(self) -> FITS_rec:
         if not any((self.E_min, self.E_max, self.coords)):
             return self.data
         
@@ -265,7 +265,7 @@ class CatalogueLoader(SimulationDataLoader):
             Maximum flux range in [ph/cm2/s] for the data filtering.
 
     Properties:
-        SDLdata (FITS_rec):
+        DLdata (FITS_rec):
             Catalog data from FITS extension 1, eventually filtered.
     """
     n: int | tuple[int, int] | None
@@ -273,7 +273,7 @@ class CatalogueLoader(SimulationDataLoader):
     F_max: int | float | None
     
     @cached_property
-    def SDLdata(self) -> FITS_rec:
+    def DLdata(self) -> FITS_rec:
         if not any((self.n, self.F_min, self.F_max)):
             return self.data
         

@@ -55,7 +55,7 @@ class TestDataLoader(TestCase):
             E_max=emax,
             coords=coords,
         )
-        data = sdl.SDLdata
+        data = sdl.DLdata
     
     def test_filtering(self):
         """Tests if filters are correctly applied."""
@@ -80,11 +80,11 @@ class TestDataLoader(TestCase):
         ], dtype=[('ID', 'i4'), ('RA', 'f8'), ('DEC', 'f8'), ('ENERGY', 'f4')])
 
         np.testing.assert_array_equal(
-            np.sort(sdl.SDLdata, order="ENERGY"),
+            np.sort(sdl.DLdata, order="ENERGY"),
             np.sort(target, order="ENERGY"),
         )
 
-        self.assertTrue(len(sdl.data) != len(sdl.SDLdata))
+        self.assertTrue(len(sdl.data) != len(sdl.DLdata))
 
 
 
@@ -131,7 +131,7 @@ class TestCatalogueLoader(TestCase):
             n=n,
             flux_range=None,
         )
-        data = sdl1.SDLdata
+        data = sdl1.DLdata
 
         # test filter for flux executable
         fmin, fmax = 20, 100
@@ -140,7 +140,7 @@ class TestCatalogueLoader(TestCase):
             n=None,
             flux_range=(fmin, fmax),
         )
-        data = sdl2.SDLdata
+        data = sdl2.DLdata
     
     def test_filtering(self):
         """Tests if filters are correctly applied."""
@@ -160,10 +160,10 @@ class TestCatalogueLoader(TestCase):
         ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(sdl1.SDLdata, order="NPHOTONS"),
+            np.sort(sdl1.DLdata, order="NPHOTONS"),
             np.sort(target1, order="NPHOTONS"),
         )
-        self.assertTrue(len(sdl1.data) != len(sdl1.SDLdata))
+        self.assertTrue(len(sdl1.data) != len(sdl1.DLdata))
 
         # test for `flux_range`
         sdl2 = get_catalogue(
@@ -180,10 +180,10 @@ class TestCatalogueLoader(TestCase):
         ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(sdl2.SDLdata, order="NPHOTONS"),
+            np.sort(sdl2.DLdata, order="NPHOTONS"),
             np.sort(target2, order="NPHOTONS"),
         )
-        self.assertTrue(len(sdl2.data) != len(sdl2.SDLdata))
+        self.assertTrue(len(sdl2.data) != len(sdl2.DLdata))
 
 
 
