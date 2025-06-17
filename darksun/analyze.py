@@ -123,6 +123,7 @@ def perform_iros(
         skies.pop(0); skies_max.pop(0)
         store_output(log, sources, obs_counts, sub_counts)
     
+    log.data2array()
     return log.log, residuals
 
 
@@ -287,6 +288,7 @@ def compute_params(
     for idx, camID in enumerate((camA, camB)):
         update_log(idx, camID)
     
+    log.data2array()
     return log.log
 
 

@@ -129,6 +129,14 @@ class Log:
         """
         for (entry, value) in values:
             self._log[cameraID][entry]["data"].append(value)
+    
+    def data2array(self) -> None:
+        """Converts parameters data lists in arrays."""
+        keys = tuple(p.entry for p in self.params)
+        for camID in self.cams:
+            for key in keys:
+                self.log[camID][key]["data"] = np.array(self.log[camID][key]["data"])
+
 
 
 def create_log(
