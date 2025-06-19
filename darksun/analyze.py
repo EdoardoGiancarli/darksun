@@ -291,7 +291,7 @@ def compute_params(
     return log.log
 
 
-def catalog_comparison(
+def catalogue_comparison(
     data: dict,
     catalogueA: np.recarray,
     catalogueB: np.recarray,
@@ -312,9 +312,11 @@ def catalog_comparison(
             and respective catalogues calibrated fluxes.
     """
     def candidate_identification(
-        catalog: np.recarray,
+        catalogue: np.recarray,
         ra: float,
+        dra: float,
         dec: float,
+        ddec: float,
     ) -> str:
         """Candidate association from catalogue."""
         pass
@@ -333,7 +335,18 @@ def catalog_comparison(
     fake_sources = ["gctr_diffuse"]
 
     print("# Comparing with Catalogues...")
-    ...
+    for catalogue, camID in zip(catalogues, data.keys()):
+        data[camID]["sourceID"] = {"data": [], "format": "20A", "unit": ""}
+        data[camID]["calibr_flux"] = {"data": [], "format": "D", "unit": "ph/cm2/s"}
+
+        for ra, dra, dec, ddec in zip(
+            data[camID]["ra"]["data"],
+            data[camID]["dra"]["data"],
+            data[camID]["dec"]["data"],
+            data[camID]["ddec"]["data"],
+        ):
+            pass
+    
     print("# Successful comparison!")
     return deepcopy(data)
 
