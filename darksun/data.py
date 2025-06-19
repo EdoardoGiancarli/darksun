@@ -153,7 +153,8 @@ class Log:
         keys = tuple(p.entry for p in self.params)
         for camID in self.cams:
             for key in keys:
-                self.log[camID][key]["data"] = np.array(self.log[camID][key]["data"])
+                if not isinstance(self.log[camID][key]["data"], np.ndarray):
+                    self.log[camID][key]["data"] = np.array(self.log[camID][key]["data"])
 
 
 def create_log(
