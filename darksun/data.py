@@ -81,15 +81,16 @@ class Log:
         """Data entry template."""
         return {"data": [], "format": frmt, "unit": unit}
 
-    def _make_log(self, params: Sequence[LogEntry]) -> dict:
-        """Creates the log structure."""        
+    def _make_log(self, params: LogEntry | Sequence[LogEntry]) -> dict:
+        """Creates the log structure."""
+        params = (params,) if isinstance(params, LogEntry) else params
         structure = {
             log.entry: self._template(log.frmt, log.unit)
             for log in params
         }
         return {camID: deepcopy(structure) for camID in self.cams}
     
-    def initialize(self, params: Sequence[LogEntry]) -> dict:
+    def initialize(self, params: LogEntry | Sequence[LogEntry]) -> dict:
         """
         Initializes the Log structure with the specified parameter entries.
         The Log is generated as a dict containing two macro-dict, one for
@@ -101,7 +102,7 @@ class Log:
             - a 'unit' field with the data units in SI format.
 
         Args:
-            params (Sequence[LogEntry]):
+            params (LogEntry | Sequence[LogEntry]):
                 Sequence with the parameter entries for the two WFM cameras.
         
         Returns:
@@ -130,6 +131,23 @@ class Log:
         for (entry, value) in values:
             self._log[cameraID][entry]["data"].append(value)
     
+    def insert_entry(
+        self,
+        cameraID: str,
+        entries: LogEntry | Sequence[LogEntry],
+    ) -> None:
+        """
+        Inserts the specified new entries in the Log.
+
+        Args:
+            cameraID (str): WFM camera to update.
+            entries (LogEntry | Sequence[LogEntry]): New entries for the Log.
+        """
+        entries = (entries,) if isinstance(entries, LogEntry) else entries
+        for entry in entries:
+            self._log[cameraID][entry.entry] = self._template(entry.frmt, entry.unit)
+
+    
     def data2array(self) -> None:
         """Converts parameters data lists in arrays."""
         keys = tuple(p.entry for p in self.params)
@@ -138,12 +156,11 @@ class Log:
                 self.log[camID][key]["data"] = np.array(self.log[camID][key]["data"])
 
 
-
 def create_log(
     *,
     camA_ID: str,
     camB_ID: str,
-    params: Sequence[LogEntry],
+    params: LogEntry | Sequence[LogEntry],
 ) -> Log:
     """
     Initializes a Log instance with the given parameters to manage
@@ -154,7 +171,7 @@ def create_log(
             WFM camera A ID (e.g., 'cam1a').
         camB_ID (str):
             WFM camera B ID (e.g., 'cam1b').
-        params (Sequence[LogEntry]):
+        params (LogEntry | Sequence[LogEntry]):
             Sequence with the parameter entries for the two WFM cameras.
 
     Returns:
