@@ -25,7 +25,9 @@ from .data import Log
 from .data import create_log
 from .data import DataLoader
 
-__all__ = []
+__all__ = [
+    "run_IROS", "compute_parameters", "catalogue_comparison"
+]
 
 
 def perform_iros(
