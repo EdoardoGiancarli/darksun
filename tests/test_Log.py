@@ -5,7 +5,7 @@ Tests for data logging.
 import unittest
 from unittest import TestCase
 
-import numpy as np
+import pandas as pd
 
 from darksun.types import LogEntry
 from darksun.data import Log, create_log
@@ -14,31 +14,9 @@ from darksun.data import Log, create_log
 class TestLogging(TestCase):
     """Tests for the Log structure in `data.py`."""
 
-    def setUp(self):
-        self.camA = "cam1a"
-        self.camB = "cam1b"
-        self.run = {
-            0: {
-                self.camA: {"par1": 2, "par2": 8},
-                self.camB: {"par1": 6, "par2": 9},
-            },
-            1: {
-                self.camA: {"par1": 5, "par2": 3},
-                self.camB: {"par1": 1, "par2": 0},
-            },
-            2: {
-                self.camA: {"par1": 4, "par2": 9},
-                self.camB: {"par1": 2, "par2": 5},
-            },
-            3: {
-                self.camA: {"par1": 1, "par2": 0},
-                self.camB: {"par1": 3, "par2": 7},
-            },
-        }
-
     def test_init(self):
         """Tests Log instance initialisation."""
-        log = Log(camA_ID=self.camA, camB_ID=self.camB)
+        log = Log()
         self.assertIsNone(log.log)
         self.assertIsNone(log.params)
     
@@ -48,109 +26,48 @@ class TestLogging(TestCase):
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
         )
-        log = create_log(
-            camA_ID=self.camA, 
-            camB_ID=self.camB,
-            params=params,
-        )
+        log = create_log(params)
 
         expected = {
-            self.camA: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
+            "par1": [],
+            "par2": [],
         }
 
+        self.assertEqual(log.params, params)
         self.assertEqual(log.log, expected)
-
-        with self.assertRaises(ValueError):
-            create_log(
-                camA_ID=1,
-                camB_ID=self.camB,
-                params=params,
-            )
-            create_log(
-                camA_ID=self.camA,
-                camB_ID=6.3,
-                params=params,
-            )
-            create_log(
-                camA_ID=1,
-                camB_ID=5,
-                params=params,
-            )
-
+    
     def test_single_entry(self):
         """Tests if a single-entry Log is correctly generated."""
         params = LogEntry("par1", "J", "unit1")
-        log = create_log(
-            camA_ID=self.camA, 
-            camB_ID=self.camB,
-            params=params,
-        )
-        expected = {
-            self.camA: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-            },
-        }
+        log = create_log(params)
+
+        expected = {"par1": []}
+        self.assertEqual(log.params, params)
         self.assertEqual(log.log, expected)
     
     def test_log_update(self):
-        """
-        Tests Log update:
-            - update procedure
-            - independence of camera logs
-        """
+        """Tests Log update procedure."""
         params = (
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
         )
-        log = create_log(
-            camA_ID=self.camA,
-            camB_ID=self.camB,
-            params=params,
-        )
+        log = create_log(params)
 
-        checkpoint = {
-            self.camA: {
-                "par1": {"data": [2, 5, 4, 1], "format": "J", "unit": "unit1"},
-                "par2": {"data": [8, 3, 9, 0], "format": "J", "unit": "unit2"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
+        run = {
+            0: {"par1": 2, "par2": 8},
+            1: {"par1": 5, "par2": 3},
+            2: {"par1": 4, "par2": 9},
+            3: {"par1": 1, "par2": 0},
         }
 
         expected = {
-            self.camA: {
-                "par1": {"data": [2, 5, 4, 1], "format": "J", "unit": "unit1"},
-                "par2": {"data": [8, 3, 9, 0], "format": "J", "unit": "unit2"},
-            },
-            self.camB: {
-                "par1": {"data": [6, 1, 2, 3], "format": "J", "unit": "unit1"},
-                "par2": {"data": [9, 0, 5, 7], "format": "J", "unit": "unit2"},
-            },
+            "par1": [2, 5, 4, 1],
+            "par2": [8, 3, 9, 0],
         }
 
-        # update CAM1A and check
         for it in range(4):
-            values = tuple((entry, val) for entry, val in self.run[it][self.camA].items())
-            log.update(self.camA, values)
-        
-        self.assertEqual(log.log, checkpoint)
-
-        # update CAM1B and check final Log
-        for it in range(4):
-            values = tuple((entry, val) for entry, val in self.run[it][self.camB].items())
-            log.update(self.camB, values)
+            values = tuple((entry, val) for entry, val in run[it].items())
+            log.update(values)
         
         self.assertEqual(log.log, expected)
     
@@ -160,111 +77,64 @@ class TestLogging(TestCase):
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
         )
-        log = create_log(
-            camA_ID=self.camA, 
-            camB_ID=self.camB,
-            params=params,
-        )
+        log = create_log(params)
+
         new_entries = (
             LogEntry("par3", "J", "unit3"),
             LogEntry("par4", "J", "unit4"),
         )
 
-        checkpoint = {
-            self.camA: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-                "par3": {"data": [], "format": "J", "unit": "unit3"},
-                "par4": {"data": [], "format": "J", "unit": "unit4"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
-        }
         expected = {
-            self.camA: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-                "par3": {"data": [], "format": "J", "unit": "unit3"},
-                "par4": {"data": [], "format": "J", "unit": "unit4"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-                "par3": {"data": [], "format": "J", "unit": "unit3"},
-                "par4": {"data": [], "format": "J", "unit": "unit4"},
-            },
+            "par1": [], "par2": [],
+            "par3": [], "par4": [],
         }
 
-        log.insert_entry(self.camA, new_entries)
-        self.assertEqual(log.log, checkpoint)
-
-        log.insert_entry(self.camB, new_entries)
+        log.insert(new_entries)
+        self.assertEqual(log.params, params + new_entries)
         self.assertEqual(log.log, expected)
     
     def test_insert_single_entry(self):
         """Tests if a single new entry is correctly added."""
-        params = LogEntry("par1", "J", "unit1")
-        log = create_log(
-            camA_ID=self.camA, 
-            camB_ID=self.camB,
-            params=params,
-        )
-        new_entry = LogEntry("par2", "J", "unit2")
-
-        expected = {
-            self.camA: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
-            self.camB: {
-                "par1": {"data": [], "format": "J", "unit": "unit1"},
-                "par2": {"data": [], "format": "J", "unit": "unit2"},
-            },
-        }
-
-        for camID in log.cams:
-            log.insert_entry(camID, new_entry)
-        self.assertEqual(log.log, expected)
-    
-    def test_data2array(self):
-        """Tests if params 'data' lists are converted to arrays."""
         params = (
             LogEntry("par1", "J", "unit1"),
             LogEntry("par2", "J", "unit2"),
         )
-        log = create_log(
-            camA_ID=self.camA,
-            camB_ID=self.camB,
-            params=params,
+        log = create_log(params)
+
+        new_entries = (
+            LogEntry("par3", "J", "unit3"),
         )
+
         expected = {
-            self.camA: {
-                "par1": {"data": np.array([2, 5, 4, 1]), "format": "J", "unit": "unit1"},
-                "par2": {"data": np.array([8, 3, 9, 0]), "format": "J", "unit": "unit2"},
-            },
-            self.camB: {
-                "par1": {"data": np.array([6, 1, 2, 3]), "format": "J", "unit": "unit1"},
-                "par2": {"data": np.array([9, 0, 5, 7]), "format": "J", "unit": "unit2"},
-            },
+            "par1": [], "par2": [], "par3": [],
         }
 
-        for camID in log.cams:
-            for it in range(4):
-                values = tuple((entry, val) for entry, val in self.run[it][camID].items())
-                log.update(camID, values)
+        log.insert(new_entries)
+        self.assertEqual(log.params, params + new_entries)
+        self.assertEqual(log.log, expected)
+    
+    def test_to_dataframe(self):
+        """Tests if the Log is correctly converted to a DataFrame."""
+        params = (
+            LogEntry("par1", "J", "unit1"),
+            LogEntry("par2", "J", "unit2"),
+        )
+        log = create_log(params)
+        log.log['par1'] = [2, 5, 4, 1]
+        log.log['par2'] = [8, 3, 9, 0]
 
-        log.data2array()
-        for camID in log.cams:
-            for p in ("par1", "par2"):
-                np.testing.assert_array_equal(
-                    log.log[camID][p]['data'],
-                    expected[camID][p]['data'],
-                )
-                self.assertTrue(isinstance(log.log[camID][p]['data'], np.ndarray))
+        expected = pd.DataFrame(
+            {
+                "par1": [2, 5, 4, 1],
+                "par2": [8, 3, 9, 0],
+            }
+        )
 
-
+        df = log.to_dataframe()
+        self.assertTrue(isinstance(log.log, dict))
+        self.assertTrue(isinstance(df, pd.DataFrame))
+        self.assertTrue((df['par1'] == expected['par1']).all())
+        self.assertTrue((df['par2'] == expected['par2']).all())
 
 
 if __name__ == "__main__":

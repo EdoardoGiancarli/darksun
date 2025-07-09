@@ -2,7 +2,7 @@
 IROS output plotting.
 """
 
-__all__ = [""]
+__all__ = []
 
 
 

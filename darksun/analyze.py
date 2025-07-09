@@ -25,7 +25,7 @@ from .data import Log
 from .data import create_log
 from .data import DataLoader
 
-__all__ = [""]
+__all__ = []
 
 
 def perform_iros(

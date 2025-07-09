@@ -12,7 +12,10 @@ import pickle
 from bloodmoon.io import _exists_valid
 from darksun.data import DataLoader
 
-__all__ = []
+__all__ = [
+    "save_database", "save_sky", "save_pickle",
+    "load_database", "load_sky", "load_pickle",
+]
 
 
 def _make_column(
@@ -92,6 +95,49 @@ def _make_bintable(
            @@@@@@@@@@@@@@@   @@@@@@@@@@@@@@@
           @@@@@@@@@@@@@@@@@ @@@@@@@@@@@@@@@@@
 """
+
+def save_database(
+    database: dict,
+    sdlA: DataLoader,
+    sdlB: DataLoader,
+    save_to: str | Path,
+) -> None:
+    """
+    Saves the input database with the structure described
+    in `Log` (look at the `data` module) to a FITS file.
+
+    Args:
+        database (dict):
+            Database with the analysis-stored data.
+        sdlA (DataLoader):
+            SDL instance for WFM camera A.
+        sdlB (DataLoader):
+            SDL instance for WFM camera B.
+        save_to (str | Path):
+            Directory path to save the FITS file.
+    """
+    print("# Saving data...")
+    # HDU list and Primary Header
+    hdu_list = fits.HDUList([])
+    primary_hdu = fits.PrimaryHDU()
+    hdu_list.append(primary_hdu)
+
+    # BinTables
+    for camID, sdl in zip(database.keys(), (sdlA, sdlB)):
+        datacam = database[camID]
+        columns = [
+            _make_column(
+                key, datacam[key]["data"], datacam[key]["format"], datacam[key]["unit"],
+            )
+            for key in list(datacam.keys())
+        ]
+        table_hdu = _make_bintable(camID, columns, sdl.header)
+        hdu_list.append(table_hdu)
+
+    # save data
+    hdu_list.writeto(save_to, output_verify="fix+ignore")
+    hdu_list.close()
+    print("# Saving completed!")
 
 
 def save_sky(
@@ -175,6 +221,43 @@ def save_pickle(data: object, save_to: str | Path) -> None:
        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   
        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@      
 """
+
+def load_database(filepath: str | Path) -> dict:
+    """
+    Loads the specified database to a dict having the
+    structure described in `Log` (within `data` module).
+
+    Args:
+        filepath (str | Path): Path to the FITS file.
+
+    Returns:
+        database (dict): Container with collected data.
+    """
+    def load_data(filepath: Path) -> dict:
+        """Opens FITS file and stores data in a dict."""
+        with fits.open(filepath) as hdul:
+            hdus = (dict(hdul[1].header), dict(hdul[2].header))
+            hdus_data = (hdul[1].data, hdul[2].data)
+        data = {
+            hdu["EXTNAME"].lower(): {
+                hdu[f"TTYPE{idx}"].lower(): {
+                    "data": hdu_data.field(idx - 1),
+                    "format": hdu[f"TFORM{idx}"],
+                    "unit": hdu[f"TUNIT{idx}"] if f"TUNIT{idx}" in hdu.keys() else "",
+                }
+                for idx in range(1, len(hdus_data[0][0]) + 1)
+            }
+            for hdu, hdu_data in zip(hdus, hdus_data)
+        }
+        return data
+    
+    if not isinstance(filepath, Path):
+        filepath = Path(filepath)
+    if _exists_valid(filepath):
+        print("# Loading data...")
+        data = load_data(filepath)
+        print("# Loading completed!")
+        return data
 
 
 def load_sky(filepath: str | Path) -> tuple[np.array]:

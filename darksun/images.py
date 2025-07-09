@@ -2,6 +2,4 @@
 Module for images processing.
 """
 
-__all__ = [
-    ""
-]
+__all__ = []
