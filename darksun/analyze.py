@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from scipy.signal import convolve
 from tqdm import tqdm
 
-from bloodmoon.mask import _detector_footprint_cached
+from bloodmoon.mask import _detector_footprint
 from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import shift2pos
@@ -217,7 +217,7 @@ def compute_parameters(
         n, m = camera.shape_sky
         proj = np.zeros(camera.shape_detector)
         components = _rbilinear(sx, sy, camera.bins_sky.x, camera.bins_sky.y)
-        i_min, i_max, j_min, j_max = _detector_footprint_cached(camera)
+        i_min, i_max, j_min, j_max = _detector_footprint(camera)
 
         for (c_i, c_j), weight in components.items():
             r, c = (n // 2 - c_i), (m // 2 - c_j)
@@ -237,11 +237,12 @@ def compute_parameters(
 
     thetas_x, thetas_y = map(
         lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
-        shifts_x, shifts_y,
+        (shifts_x, shifts_y),
     )
     dthetas_x, dthetas_y = map(
         lambda shifts, dshifts: tuple(angle_error(s, ds) for s, ds in zip(shifts, dshifts)),
-        (shifts_x, dshifts_x), (shifts_y, dshifts_y),
+        (shifts_x, dshifts_x),
+        (shifts_y, dshifts_y),
     )
     log.add_entry_values('anglex', list(thetas_x))
     log.add_entry_values('angley', list(thetas_y))
