@@ -5,6 +5,8 @@ IROS output data management and computation.
 import numpy as np
 from numpy.typing import NDArray
 from scipy.signal import convolve
+from pandas import DataFrame
+from astropy.io.fits.fitsrec import FITS_rec
 from tqdm import tqdm
 
 from bloodmoon.mask import _detector_footprint
@@ -20,6 +22,7 @@ from bloodmoon.optim import iros
 
 from .types import LogEntry
 from .data import DataLoader
+from .data import CatalogueLoader
 from .data import Log
 from .data import create_log
 
@@ -279,6 +282,87 @@ def compute_parameters(
     return log
 
 
+def catalogue_comparison(
+    log: Log,
+    catalogue: CatalogueLoader,
+) -> DataFrame:
+    """
+    Compares the reconstructed IROS data with the catalogue,
+    associating the candidates with the known sources.
+
+    Args:
+        log (Log):
+            IROS data output from `compute_parameters()`.
+        catalogue (CatalogueLoader):
+            Catalogue data for the WFM coded-mask camera.
+
+    Returns:
+        output (DataFrame):
+            Pandas DataFrame with the updated entries for the
+            input IROS candidates database, featuring sources
+            IDs and respective catalogues calibrated fluxes.
+    """
+    # set up
+    fake_sources = ["gctr_diffuse"]
+    NEW_ID = 0
+
+    # update Log
+    params = (
+        LogEntry('ID', '20A', ''), LogEntry('calibr_flux', 'D', 'ph/cm2/s'),
+    )
+    log.insert(params)
+
+    def candidate_identification(
+        ra: float,
+        dra: float,
+        dec: float,
+        ddec: float,
+    ) -> str:
+        """Candidate association from catalogue."""
+
+        def closer_source(batch: FITS_rec) -> int:
+            """Returns closer catalogue source index."""
+            arg = np.argmin(
+                np.square(batch["RA"] - ra) + np.square(batch["DEC"] - dec)
+            )
+            return arg
+    
+        box = (
+            (ra - dra < catalogue.data['RA'] < ra + dra) &
+            (dec - ddec < catalogue.data['DEC'] < dec + ddec) &
+            (catalogue.data['ID'] not in fake_sources)                  # TODO: solve this bc surely doesn't work
+        )
+        associated_batch = catalogue.data[box]
+
+        if not associated_batch:
+            sourceID = f'lemx-{NEW_ID}'
+            NEW_ID += 1
+            return sourceID
+        else:
+            arg = closer_source(associated_batch)
+            sourceID = associated_batch[arg]
+    
+    def sources_screening(df: DataFrame) -> DataFrame:
+        """Removes repeating sources based on significance."""
+        pass                                                            # TODO: implement this
+
+    print("# Comparing with Catalogues...")
+    # initial sources association
+    for ra, dra, dec, ddec in zip(
+        log.log["ra"],
+        log.log["dra"],
+        log.log["dec"],
+        log.log["ddec"],
+    ):
+        sourceID = candidate_identification(ra, dra, dec, ddec)
+        calibr_flux = catalogue.data[sourceID]['FLUX'] or -1
+        log.update(values=(('ID', sourceID), ('calibr_flux', calibr_flux)))
+    
+    # sources screening based on significance
+    df = sources_screening(log.to_dataframe())
+
+    print("# Successful comparison!")
+    return df
 
 
 # end
