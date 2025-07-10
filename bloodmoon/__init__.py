@@ -44,14 +44,13 @@ components or refer to the module docstrings.
 
 from .io import simulation
 from .io import simulation_files
-from .mask import chop
 from .mask import codedmask
 from .mask import count
+from .mask import cutout
 from .mask import decode
-from .mask import model_shadowgram
-from .mask import model_sky
 from .mask import snratio
-from .mask import strip
 from .mask import variance
 from .optim import iros
+from .optim import model_shadowgram
+from .optim import model_sky
 from .optim import optimize
