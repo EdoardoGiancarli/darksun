@@ -31,15 +31,18 @@ def upscale(
     by interpolating array values.
 
     Args:
-        data (NDArray): Input 2D array.
-        upscale_y (int): Upscaling factor over the y direction.
-        upscale_x (int): Upscaling factor over the x direction.
+        data (NDArray):
+            Input 2D array.
+        upscale_y (int, optional (default=`1`)):
+            Upscaling factor over the y direction.
+        upscale_x (int, optional (default=`1`)):
+            Upscaling factor over the x direction.
 
     Returns:
         output (NDArray): Oversampled array.
 
     Raises:
-        ValueError: if upscale factors are not positive integers.
+        ValueError: If upscale factors are not positive integers.
     
     Notes:
         - The array total sum is conserved through linear interpolation.
@@ -73,15 +76,18 @@ def downscale(
     and adding over them to interpolate array values.
 
     Args:
-        data (NDArray): Input 2D array.
-        downscale_y (int): Downscaling factor over the y direction.
-        downscale_x (int): Downscaling factor over the x direction.
+        data (NDArray):
+            Input 2D array.
+        downscale_y (int, optional (default=`1`)):
+            Downscaling factor over the y direction.
+        downscale_x (int, optional (default=`1`)):
+            Downscaling factor over the x direction.
 
     Returns:
         output (NDArray): Downsampled array.
 
     Raises:
-        ValueError: if downscale factors are not positive integers.
+        ValueError: If downscale factors are not positive integers.
     
     Notes:
         - The downsampling is performed through blocks subdivision, which
@@ -144,7 +150,7 @@ def crop(
             Center position for cropping.
         crp (tuple[int, int]):
             Size of the cropping along (y, x).
-        strict (bool, optional (default=True)):
+        strict (bool, optional (default=`True`)):
             If `False` allows for the cropping to be adapted
             wrt the array edges when they are exceeded.
     
@@ -200,12 +206,12 @@ def make_sky(
             Database with parameters computed from IROS.
         camera (CodedMaskCamera):
             CodedMaskCamera instance used for imaging and reconstruction.
-        background (NDArray, optional (default=None)):
-            Background for the reconstructed sky.
-        vignetting (bool, optional (default=True)):
+        vignetting (bool, optional (default=`True`)):
             Simulates vignetting effects.
-        psfy (bool, optional (default=True)):
+        psfy (bool, optional (default=`True`)):
             Simulates detector reconstruction effects.
+        background (NDArray, optional (default=`None`)):
+            Background for the reconstructed sky.
     
     Returns:
         sky (NDArray):

@@ -123,7 +123,7 @@ def filter_catalog(
         n (int | tuple[int, int] | None):
             Filtered interval of sources, up to the n-th brightest
             source or from `n[0]` to `n[1]` if `n` is a tuple.
-        flux_range (tuple[int | float | None, int | float | None] | None, optional (default=None)):
+        flux_range (tuple[int | float | None, int | float | None] | None, optional (default=`None`)):
             Flux range in ph/cm2/s for the data filtering. The
             input tuple is interpreted as (`F_min`, `F_max`).
     

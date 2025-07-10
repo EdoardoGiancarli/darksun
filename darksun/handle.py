@@ -5,6 +5,7 @@ IROS output data handling.
 from pathlib import Path
 
 import numpy as np
+from numpy.typing import NDArray
 from astropy.io import fits
 from astropy.wcs import WCS
 import pickle
@@ -17,7 +18,7 @@ __all__ = []
 
 def _make_column(
     name: str,
-    data: np.array,
+    data: NDArray,
     frmt: str,
     unit: str = "",
 ) -> fits.Column:
@@ -27,7 +28,7 @@ def _make_column(
     Args:
         name (str):
             Name of the column.
-        data (np.array):
+        data (NDArray):
             Data to be stored in the column.
         frmt (str):
             FITS format of the column data.
@@ -59,7 +60,7 @@ def _make_bintable(
             Name of the binary table.
         columns (list[fits.Column]):
             List of FITS Column objects.
-        header (fits.Header, optional (default=None)):
+        header (fits.Header, optional (default=`None`)):
             FITS Header object for the table.
 
     Returns:
@@ -95,8 +96,8 @@ def _make_bintable(
 
 
 def save_sky(
-    sky: np.array,
-    snr: np.array,
+    sky: NDArray,
+    snr: NDArray,
     sdl: DataLoader,
     save_to: str | Path,
     wcs: WCS = None,
@@ -106,15 +107,15 @@ def save_sky(
     including optional World Coordinate System (WCS) information if provided.
 
     Args:
-        sky (np.array):
+        sky (NDArray):
             Sky data array to be saved.
-        snr (np.array):
+        snr (NDArray):
             Sky significance array.
         sdl (DataLoader):
             DataLoader instance providing additional metadata.
         save_to (str | Path):
             File path or directory where the FITS image will be saved.
-        wcs (WCS, optional (default=None)):
+        wcs (WCS, optional (default=`None`)):
             World Coordinate System instance, which can be used to
             include coordinate information in the FITS header.
     """
@@ -177,7 +178,7 @@ def save_pickle(data: object, save_to: str | Path) -> None:
 """
 
 
-def load_sky(filepath: str | Path) -> tuple[np.array]:
+def load_sky(filepath: str | Path) -> tuple[NDArray]:
     """
     Loads sky and its SNR from FITS.
 
@@ -186,10 +187,10 @@ def load_sky(filepath: str | Path) -> tuple[np.array]:
 
     Returns:
         output (tuple):
-            - sky (np.array): 2D array for the sky.
-            - snr (np.array): sky significance.
+            - sky (NDArray): 2D array for the sky.
+            - snr (NDArray): sky significance.
     """
-    def load_data(filepath: Path) -> tuple[np.array]:
+    def load_data(filepath: Path) -> tuple[NDArray]:
         """Open FITS and store Images in 2D-array."""
         with fits.open(filepath) as hdu:
             sky, snr = hdu[1].data, hdu[2].data
