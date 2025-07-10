@@ -127,7 +127,10 @@ def compose(
         raise ValueError("Input matrices must have same shape")
 
     maxd, mind = max(a.shape), min(a.shape)
-    # if matrices have odd rows and even columns composition is ambiguous
+    # if matrices have odd rows and even columns, or viceversa, composition is ambiguous because
+    # we can't put one piece over the other at the dead center. we have to chose if putting one
+    # up or down a row. we solve this by silently cutting a column, or a row. We could pad
+    # but I feel it would end even worse.
     if maxd % 2 != mind % 2:
         if strict:
             raise ValueError("Input matrices must have rows and columns with same parity if `strict` is True")
@@ -148,7 +151,8 @@ def compose(
         b_embedding = np.pad(np.rot90(b, k=-1), pad_width=((delta, delta), (0, 0)))
     composed = a_embedding + b_embedding
 
-    def _rotb2b(i, j):
+    def _rotback2b(i, j):
+        """Given c_i, c_j indices !of the compose's output 'c'! returns b_i, b_j."""
         return mind - 1 - j, i
 
     def f(i: int, j: int) -> tuple[Optional[tuple[int, int]], Optional[tuple[int, int]]]:
@@ -179,13 +183,13 @@ def compose(
         elif j < mind + delta:
             if i < delta:
                 # N quadrant
-                return None, _rotb2b(i, j - delta)
+                return None, _rotback2b(i, j - delta)
             elif i < maxd - delta:
                 # C quadrant
-                return (i - delta, j), _rotb2b(i, j - delta)
+                return (i - delta, j), _rotback2b(i, j - delta)
             else:
                 # S quadrant
-                return None, _rotb2b(i, j - delta)
+                return None, _rotback2b(i, j - delta)
         else:
             # E quadrant
             if not (delta <= i < delta + mind):
@@ -244,7 +248,6 @@ def _rbilinear(
     To C we assign a weight (1 - dx) * dy.
     To D we assign a weight dx * dy.
 
-
     Args:
         cx: x-coordinate of the point
         cy: y-coordinate of the point
@@ -254,6 +257,24 @@ def _rbilinear(
     Returns:
         Ordered dictionary mapping grid point indices to their interpolation weights
         The first dictionary elements map to the bin whose midpoint is closest to the input.
+
+    Notes:
+        * Assumes uniform grid spacing.
+        * If the pivot falls on the grid (hence there is no unambiguous choice),
+          the cell with the largest indeces is selected as the pivot.
+          For example, in the next case, the pivot has index (4, 3):
+          ```
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.25, 0.25, 0.0],
+                [0.0, 0.0, 0.25, 0.25, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+            ```
+            See tests for more details.
 
     Raises:
         ValueError: If grid is invalid or point lies outside
@@ -266,8 +287,17 @@ def _rbilinear(
         raise ValueError("Center lies outside grid.")
 
     i, j = (bisect(bins_y, cy) - 1), bisect(bins_x, cx) - 1
-    # this will take care of the pivots when it is falss on the border
+    # why the `-2`?
+    # ```
+    # bins_x = [0, 1, 2]
+    # cx = 1.99  # a value very close to the right border
+    # assert(bisect(bins_x, cx) == 2)
+    # i = bisect(bins_y, cy) - 1
+    # ```
+    # hence `i` should be 1 to fall on the border
     if i == 0 or j == 0 or i == len(bins_y) - 2 or j == len(bins_x) - 2:
+        i = max(0, min(i, len(bins_y) - 2))
+        j = max(0, min(j, len(bins_x) - 2))
         return OrderedDict([((i, j), 1.0)])
 
     mx, my = (bins_x[j] + bins_x[j + 1]) / 2, (bins_y[i] + bins_y[i + 1]) / 2
@@ -339,13 +369,17 @@ def _interp(
         mindim = min(min(xs.shape), min(ys.shape))
         if mindim > 3:
             return "cubic"
-        if mindim > 1:
+        elif mindim > 1:
             method = "linear"
+            warnings.warn(
+                f"Interpolator bins too small for method 'cubic', resorting to '{method}'. "
+                f"Consider upscaling your mask if you haven't yet."
+            )
         elif mindim > 0:
             method = "nearest"
             warnings.warn(
                 f"Interpolator bins too small for method 'cubic', resorting to '{method}'. "
-                f"Consider upscaling your mask."
+                f"Consider upscaling your mask if you haven't yet."
             )
         else:
             raise ValueError("Can not interpolate, interpolator grid is empty.")
@@ -353,8 +387,8 @@ def _interp(
 
     midpoints_x = (bins.x[1:] + bins.x[:-1]) / 2
     midpoints_y = (bins.y[1:] + bins.y[:-1]) / 2
-    midpoints_x_fine = np.linspace(midpoints_x[0], midpoints_x[-1], len(midpoints_x) * interp_f.x + 1)
-    midpoints_y_fine = np.linspace(midpoints_y[0], midpoints_y[-1], len(midpoints_y) * interp_f.y + 1)
+    midpoints_x_fine = np.linspace(midpoints_x[0], midpoints_x[-1], interp_f.x * (len(midpoints_x) - 1) + 1)
+    midpoints_y_fine = np.linspace(midpoints_y[0], midpoints_y[-1], interp_f.y * (len(midpoints_y) - 1) + 1)
     interp = RegularGridInterpolator(
         (midpoints_x, midpoints_y),
         tile.T,
@@ -414,11 +448,6 @@ def _erosion(
     """
     2D matrix erosion for simulating finite thickness effect in shadow projections.
     It takes a mask array and "thins" the mask elements across the columns' direction.
-    The erosion is performed only on the correct side of open mask elements:\n
-        - right side, if cut is negative (negative angle wrt camera optical axis)
-        - left side, if cut is positive (positive angle wrt camera optical axis)
-    The function erodes all integer bins (replacing 1s with 0s). If cut is not integer,
-    then the function applies a fractional transparency to the last eroded bin.
 
     Comes with NO safeguards: setting cuts larger than step may remove slits or make them negative.
 
@@ -454,10 +483,13 @@ def _erosion(
 
     Returns:
         Modified array with shadow effects applied
+
+    Notes:
+        * See tests for usage examples.
     """
     if not np.issubdtype(arr.dtype, np.integer):
         raise ValueError("Input array must be of integer type.")
-    
+
     # number of bins to cut
     ncuts = int(cut / step)
     cutted = arr * (arr & _shift(arr, (0, ncuts))) if ncuts else arr
@@ -466,10 +498,7 @@ def _erosion(
     #   - the bin with the decimal values is the one
     #     to the left or right wrt the cutted bins
     erosion_value = abs(cut / step - ncuts)
-    border = (
-        (cutted - _shift(cutted, (0, int(np.sign(cut))))) > 0
-    )
-    
+    border = (cutted - _shift(cutted, (0, int(np.sign(cut))))) > 0
     return cutted - border * erosion_value
 
 
