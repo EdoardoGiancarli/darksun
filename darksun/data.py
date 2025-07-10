@@ -2,7 +2,7 @@
 Module for data handling.
 """
 
-from collections.abc import Sequence
+from typing import Any, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -92,6 +92,16 @@ class Log:
         """
         for (entry, value) in values:
             self._log[entry].append(value)
+    
+    def add_entry_values(self, entry: str, values: Sequence[Any]) -> None:
+        """
+        Add the specified sequence of values to the Log entry.
+
+        Args:
+            entry (str): Entry name of the Log.
+            values (Sequence[Any]): Values for the entry.
+        """
+        self._log[entry] = values
     
     def insert(self, entries: LogEntry | Sequence[LogEntry]) -> None:
         """

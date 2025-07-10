@@ -1,3 +1,7 @@
+"""
+Tests for the DataLoader and CatalogueLoader classes.
+"""
+
 import unittest
 from unittest import TestCase
 

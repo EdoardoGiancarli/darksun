@@ -2,7 +2,7 @@
 Data filters for photons energy range, sources flux and sources positions.
 """
 
-from collections.abc import Sequence
+from typing import Sequence
 
 import numpy as np
 from astropy.io.fits.fitsrec import FITS_rec
