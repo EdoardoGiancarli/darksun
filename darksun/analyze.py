@@ -303,7 +303,7 @@ def catalogue_comparison(
             IDs and respective catalogues calibrated fluxes.
     """
     # set up
-    fake_sources = ["gctr_diffuse"]
+    cxb_tag = "gctr_diffuse"
     NEW_ID = 0
 
     # update Log
@@ -317,6 +317,7 @@ def catalogue_comparison(
         dra: float,
         dec: float,
         ddec: float,
+        sigma: int | float = 1,
     ) -> str:
         """Candidate association from catalogue."""
 
@@ -328,14 +329,14 @@ def catalogue_comparison(
             return arg
     
         box = (
-            (ra - dra < catalogue.data['RA'] < ra + dra) &
-            (dec - ddec < catalogue.data['DEC'] < dec + ddec) &
-            (catalogue.data['ID'] not in fake_sources)                  # TODO: solve this bc surely doesn't work
+            (ra - sigma * dra < catalogue.data['RA'] < ra + sigma * dra) &
+            (dec - sigma * ddec < catalogue.data['DEC'] < dec + sigma * ddec) &
+            (catalogue.data['ID'] != cxb_tag)
         )
         associated_batch = catalogue.data[box]
 
         if not associated_batch:
-            sourceID = f'lemx-{NEW_ID}'
+            sourceID = f'lemx-s{NEW_ID}'
             NEW_ID += 1
             return sourceID
         else:
@@ -344,15 +345,13 @@ def catalogue_comparison(
     
     def sources_screening(df: DataFrame) -> DataFrame:
         """Removes repeating sources based on significance."""
-        pass                                                            # TODO: implement this
+        return df
 
-    print("# Comparing with Catalogues...")
+    print("# Comparing with Catalogue...")
     # initial sources association
     for ra, dra, dec, ddec in zip(
-        log.log["ra"],
-        log.log["dra"],
-        log.log["dec"],
-        log.log["ddec"],
+        log.log["ra"], log.log["dra"],
+        log.log["dec"], log.log["ddec"],
     ):
         sourceID = candidate_identification(ra, dra, dec, ddec)
         calibr_flux = catalogue.data[sourceID]['FLUX'] or -1

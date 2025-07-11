@@ -23,7 +23,7 @@ from bloodmoon.mask import CodedMaskCamera
 
 from .types import LogEntry
 from .filtering import filter_data
-from .filtering import filter_catalog
+from .filtering import filter_catalogue
 
 __all__ = []
 
@@ -265,8 +265,8 @@ class CatalogueLoader(SimulationDataLoader):
         
         rec = deepcopy(self.data)
         flux_range = (self.F_min, self.F_max) if any((self.F_min, self.F_max)) else None
-        return filter_catalog(
-            catalog=rec,
+        return filter_catalogue(
+            catalogue=rec,
             n=self.n,
             flux_range=flux_range,
         )

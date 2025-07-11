@@ -10,8 +10,8 @@ import numpy as np
 from bloodmoon.types import CoordEquatorial
 from darksun.data import get_data, get_catalogue
 
-from tests.assets import _path_test_SDL
-from tests.assets import _path_test_catalogue
+from .assets import _path_test_SDL
+from .assets import _path_test_catalogue
 
 class TestDataLoader(TestCase):
     """Tests for DataLoader and photons event list access."""
@@ -161,7 +161,7 @@ class TestCatalogueLoader(TestCase):
             ('SRC_A', 10.684,  41.269, 12.4, 120),
             ('SRC_I', 123.456, -10.123, 14.6, 101),
             ('SRC_J', 250.349, 36.467, 42.3, 110),
-        ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(sdl1.DLdata, order="NPHOTONS"),
@@ -181,7 +181,7 @@ class TestCatalogueLoader(TestCase):
             ('SRC_F', 13.158, -72.800, 23.1, 132),
             ('SRC_G', 299.868, 40.733, 71.8, 77),
             ('SRC_J', 250.349, 36.467, 42.3, 110),
-        ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(sdl2.DLdata, order="NPHOTONS"),

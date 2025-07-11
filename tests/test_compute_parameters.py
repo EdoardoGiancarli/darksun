@@ -5,8 +5,6 @@ Tests for IROS candidates parameters computing.
 import unittest
 from unittest import TestCase
 
-import numpy as np
-
 from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
@@ -16,8 +14,8 @@ from darksun.types import LogEntry
 from darksun.analyze import compute_parameters
 from darksun.data import create_log, get_data
 
-from tests.assets import _path_test_SDL
-from tests.assets import _path_test_mask
+from .assets import _path_test_SDL
+from .assets import _path_test_mask
 
 
 class TestComputeParameters(TestCase):

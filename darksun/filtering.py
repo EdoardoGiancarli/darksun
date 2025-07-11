@@ -10,7 +10,7 @@ from astropy.io.fits.fitsrec import FITS_rec
 from bloodmoon.types import CoordEquatorial
 
 __all__ = [
-    "filter_data", "flux_filter", "source_filter", "filter_catalog",
+    "filter_data", "flux_filter", "source_filter", "filter_catalogue",
 ]
 
 
@@ -84,7 +84,7 @@ def source_filter(
     n: int | tuple[int, int],
 ) -> FITS_rec:
     """
-    Select the `n` brightest sources from the input catalog `data`,
+    Select the `n` brightest sources from the input catalogue `data`,
     or a given interval of sources.
 
     Args:
@@ -101,24 +101,24 @@ def source_filter(
         - `n` follows the std Python indexing rules.
     """
     sorted_rec = np.sort(data, order="NPHOTONS")[::-1]
-    runs = len(sorted_rec) // len(np.unique(sorted_rec["NAME"]))
+    runs = len(sorted_rec) // len(np.unique(sorted_rec["ID"]))
     return sorted_rec[:runs * n] if isinstance(n, int) else sorted_rec[runs * n[0] : runs * n[1]]
 
 
-def filter_catalog(
-    catalog: FITS_rec,
+def filter_catalogue(
+    catalogue: FITS_rec,
     *,
     n: int | tuple[int, int] | None,
     flux_range: tuple[int | float | None, int | float | None] | None = None,
 ) -> FITS_rec:
     """
-    Filters the input `catalog` record based on the sources fluence OR flux.
+    Filters the input `catalogue` record based on the sources fluence OR flux.
     If `n` is given, it selects the `n` brightest sources from the input
     record, or a given interval of sources. If `flux_range` is given, it
     filters the input record for a given flux range.
     
     Args:
-        catalog (FITS_rec):
+        catalogue (FITS_rec):
             Input simulated data container.
         n (int | tuple[int, int] | None):
             Filtered interval of sources, up to the n-th brightest
@@ -131,17 +131,17 @@ def filter_catalog(
         output (FITS_rec): Output filtered data container.
     
     Raises:
-        ValueError: If `n` or `flux_range` are both specified for catalogs filtering.
+        ValueError: If `n` or `flux_range` are both specified for catalogues filtering.
     """
     if n and flux_range:
-        raise ValueError("Specify either 'n' or 'flux_range' to filter the catalog.")
+        raise ValueError("Specify either 'n' or 'flux_range' to filter the catalogue.")
     
     if n is not None:
-        return source_filter(catalog, n)
+        return source_filter(catalogue, n)
     elif flux_range is not None:
-        return flux_filter(catalog, *flux_range)
+        return flux_filter(catalogue, *flux_range)
     
-    return catalog
+    return catalogue
 
 
 # end

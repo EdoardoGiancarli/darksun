@@ -1,5 +1,5 @@
 """
-Tests for simulated data and catalog filters.
+Tests for simulated data and catalogue filters.
 """
 
 import unittest
@@ -11,14 +11,14 @@ from bloodmoon.types import CoordEquatorial
 from darksun.filtering import filter_data
 from darksun.filtering import flux_filter
 from darksun.filtering import source_filter
-from darksun.filtering import filter_catalog
+from darksun.filtering import filter_catalogue
 
 
 class TestFilters(TestCase):
     """Tests for the filters in `filtering.py`."""
     
     def setUp(self):
-        """Initialize the photons list and the catalog."""
+        """Initialize the photons list and the catalogue."""
         # simulated list of photons
         self.data = np.rec.array([
             (1,  10.684,  41.269, 22.5),
@@ -33,8 +33,8 @@ class TestFilters(TestCase):
             (10, 250.349,  36.467, 47.0),
         ], dtype=[('ID', 'i4'), ('RA', 'f8'), ('DEC', 'f8'), ('ENERGY', 'f4')])
         
-        # simulated catalog for single run (e.g., 1ks exposure)
-        self.catalog = np.rec.array([
+        # simulated catalogue for single run (e.g., 1ks exposure)
+        self.catalogue = np.rec.array([
             ('SRC_A', 12.4, 120),
             ('SRC_B', 3.5, 98),
             ('SRC_C', 87.2, 143),
@@ -45,10 +45,10 @@ class TestFilters(TestCase):
             ('SRC_H', 99.9, 160),
             ('SRC_I', 14.6, 101),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
-        # simulated catalog for multiple runs (e.g., 3ks exposure)
-        self.catalog_mult_runs = np.rec.array([
+        # simulated catalogue for multiple runs (e.g., 3ks exposure)
+        self.catalogue_mult_runs = np.rec.array([
             ('SRC_A', 12.4, 120), ('SRC_A', 12.4, 120), ('SRC_A', 12.4, 120),
             ('SRC_B', 3.5, 98), ('SRC_B', 3.5, 98), ('SRC_B', 3.5, 98),
             ('SRC_C', 87.2, 143), ('SRC_C', 87.2, 143),  ('SRC_C', 87.2, 143),
@@ -59,7 +59,7 @@ class TestFilters(TestCase):
             ('SRC_H', 99.9, 160), ('SRC_H', 99.9, 160), ('SRC_H', 99.9, 160),
             ('SRC_I', 14.6, 101), ('SRC_I', 14.6, 101), ('SRC_I', 14.6, 101),
             ('SRC_J', 42.3, 110), ('SRC_J', 42.3, 110), ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
 
     def test_data_energy_filter(self):
@@ -187,7 +187,7 @@ class TestFilters(TestCase):
         )
 
 
-    def test_catalog_flux_filter(self):
+    def test_catalogue_flux_filter(self):
         """Tests for `flux_filter()`."""
         flux_range1 = (30, None)
         target1 = np.rec.array([
@@ -196,10 +196,10 @@ class TestFilters(TestCase):
             ('SRC_G', 71.8, 77),
             ('SRC_H', 99.9, 160),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(flux_filter(self.catalog, *flux_range1), order="FLUX"),
+            np.sort(flux_filter(self.catalogue, *flux_range1), order="FLUX"),
             np.sort(target1, order="FLUX"),
         )
 
@@ -212,10 +212,10 @@ class TestFilters(TestCase):
             ('SRC_F', 23.1, 132),
             ('SRC_I', 14.6, 101),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(flux_filter(self.catalog, *flux_range2), order="FLUX"),
+            np.sort(flux_filter(self.catalogue, *flux_range2), order="FLUX"),
             np.sort(target2, order="FLUX"),
         )
 
@@ -225,24 +225,24 @@ class TestFilters(TestCase):
             ('SRC_F', 23.1, 132),
             ('SRC_G', 71.8, 77),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(flux_filter(self.catalog, *flux_range3), order="FLUX"),
+            np.sort(flux_filter(self.catalogue, *flux_range3), order="FLUX"),
             np.sort(target3, order="FLUX"),
         )
 
-    def test_catalog_sources_filter(self):
+    def test_catalogue_sources_filter(self):
         """Tests for `source_filter()` on single run."""
         n = 3
         target = np.rec.array([
             ('SRC_C', 87.2, 143),
             ('SRC_F', 23.1, 132),
             ('SRC_H', 99.9, 160),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(source_filter(self.catalog, n), order="NPHOTONS"),
+            np.sort(source_filter(self.catalogue, n), order="NPHOTONS"),
             np.sort(target, order="NPHOTONS"),
         )
 
@@ -251,14 +251,14 @@ class TestFilters(TestCase):
             ('SRC_A', 12.4, 120),
             ('SRC_I', 14.6, 101),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(source_filter(self.catalog, n), order="NPHOTONS"),
+            np.sort(source_filter(self.catalogue, n), order="NPHOTONS"),
             np.sort(target, order="NPHOTONS"),
         )
 
-    def test_catalog_sources_filter2(self):
+    def test_catalogue_sources_filter2(self):
         """Tests for `source_filter()` on multiple runs."""
         n = 3
         target = np.rec.array([
@@ -271,10 +271,10 @@ class TestFilters(TestCase):
             ('SRC_H', 99.9, 160),
             ('SRC_H', 99.9, 160),
             ('SRC_H', 99.9, 160),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(source_filter(self.catalog_mult_runs, n), order="NPHOTONS"),
+            np.sort(source_filter(self.catalogue_mult_runs, n), order="NPHOTONS"),
             np.sort(target, order="NPHOTONS"),
         )
 
@@ -289,29 +289,29 @@ class TestFilters(TestCase):
             ('SRC_J', 42.3, 110),
             ('SRC_J', 42.3, 110),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
-            np.sort(source_filter(self.catalog_mult_runs, n), order="NPHOTONS"),
+            np.sort(source_filter(self.catalogue_mult_runs, n), order="NPHOTONS"),
             np.sort(target, order="NPHOTONS"),
         )
 
-    def test_catalog_filter(self):
-        """Test for `filter_catalog()`."""
+    def test_catalogue_filter(self):
+        """Test for `filter_catalogue()`."""
         n = (3, 6)
         flux_range = (20, 90)
 
         # test for ValueError when both `n` and `flux_range` are given
         with self.assertRaises(ValueError):
-            filter_catalog(self.catalog, n=n, flux_range=flux_range)
+            filter_catalogue(self.catalogue, n=n, flux_range=flux_range)
         
         # test for `n`
-        filtered = filter_catalog(self.catalog, n=n)
+        filtered = filter_catalogue(self.catalogue, n=n)
         target = np.rec.array([
             ('SRC_A', 12.4, 120),
             ('SRC_I', 14.6, 101),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(filtered, order="NPHOTONS"),
@@ -319,8 +319,8 @@ class TestFilters(TestCase):
         )
 
         # test for `flux_range`
-        filtered = filter_catalog(
-            self.catalog, n=None, flux_range=flux_range,
+        filtered = filter_catalogue(
+            self.catalogue, n=None, flux_range=flux_range,
         )
         target = np.rec.array([
             ('SRC_C', 87.2, 143),
@@ -328,7 +328,7 @@ class TestFilters(TestCase):
             ('SRC_F', 23.1, 132),
             ('SRC_G', 71.8, 77),
             ('SRC_J', 42.3, 110),
-        ], dtype=[('NAME', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'U10'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(filtered, order="NPHOTONS"),

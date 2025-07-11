@@ -1,0 +1,81 @@
+"""
+Tests for IROS data comparison with Catalogue.
+"""
+
+import unittest
+from unittest import TestCase
+
+import numpy as np
+import pandas as pd
+
+from darksun.types import LogEntry
+from darksun.data import create_log
+from darksun.data import get_catalogue
+from darksun.analyze import catalogue_comparison
+
+from tests.assets import _path_test_catalogue
+
+
+class TestCatalogueComparison(TestCase):
+    """Tests for the `catalogue_comparison` methos in `analyze.py`."""
+
+    def setUp(self):
+        dra, ddec = 1.0, 1.0
+        run = np.rec.array([
+
+            ('s1', 257.0, dra, 52.0, ddec, 5),         # associated directly
+            ('s2', 260.0, dra, 55.0, ddec, 5),
+            ('s3', 263.0, dra, 58.0, ddec, 5),
+            ('s4', 266.0, dra, 61.0, ddec, 5),
+
+            ('s6', 270.0, dra, 65.0, ddec, 5),         # associated through distance
+
+            ('s9', 274.0, dra, 69.0, ddec, 5),         # associated through distance and removing 'gctr_diffuse'
+
+            ('lemx-1', 278.0, dra, 73.0, ddec, 5),     # associated with new sources
+            ('lemx-2', 281.0, dra, 76.0, ddec, 5),
+            ('lemx-3', 284.0, dra, 79.0, ddec, 5),
+            ('lemx-4', 257.0, dra, 76.0, ddec, 5),
+
+            ('s2', 260.0, dra, 55.0, ddec, 3),         # repeating sources
+            ('s2', 260.0, dra, 55.0, ddec, 1),
+            ('s6', 270.0, dra, 65.0, ddec, 3),
+            ('s6', 270.0, dra, 65.0, ddec, 1),
+            ('s9', 274.0, dra, 69.0, ddec, 3),
+            ('s9', 274.0, dra, 69.0, ddec, 1),
+            ('lemx-3', 284.0, dra, 79.0, ddec, 3),
+            ('lemx-3', 284.0, dra, 79.0, ddec, 1),
+
+        ], dtype=[('ID', 'S20'), ('RA', 'f8'), ('DRA', 'f8'), ('DEC', 'f8'), ('DDEC', 'f8'), ('SNR', 'f8')])
+
+        params = (
+            LogEntry('ra', 'D', 'deg'),
+            LogEntry('dra', 'D', 'deg'),
+            LogEntry('dec', 'D', 'deg'),
+            LogEntry('ddec', 'D', 'deg'),
+            LogEntry('snr', 'D', ''),
+        )
+
+        log = create_log(params)
+
+        for entry in tuple(p.entry for p in log.params):
+            log.add_entry_values(entry, run[entry.upper()])
+        
+        self.log = log
+
+    def test_comparison(self):
+        """Tests if `catalogue_comparison` correctly works."""
+        catalogue = get_catalogue(_path_test_catalogue)
+        db = catalogue_comparison(
+            log=self.log,
+            catalogue=catalogue
+        )
+
+
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+# end
