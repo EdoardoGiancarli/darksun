@@ -155,7 +155,10 @@ def crop(
             wrt the array edges when they are exceeded.
     
     Returns:
-        output (NDArray): Cropped 2D array (shape twice the `crp`).
+        output (NDArray):
+            Cropped 2D array. The cut is performed by centering the
+            cropped array, so that the final shape is `2 * crp + 1`
+            along the two axes.
     
     Raises:
         ValueError: If `crp` is not a positive int tuple.
@@ -168,21 +171,21 @@ def crop(
     n, m = image.shape
     y, x = pos
     cy, cx = crp
-    flagx = (
+    boundary_x = (
         ((0 <= x - cx) and (x + cx < m - 1)) or ((cx - x <= m - 1) and (x + cx < 0))
     )
-    flagy = (
+    boundary_y = (
         ((0 <= y - cy) and (y + cy < n - 1)) or ((cy - y <= n - 1) and (y + cy < 0))
     )
 
     if (cy <= 0) or (cx <= 0):
         raise ValueError("Cropping must be a tuple of positive integers.")
-    if not (flagx and flagy):
+    if not (boundary_x and boundary_y):
         if not strict:
             # the crop extends up to the 2nd row/col from top/bottom/left/right
-            if not flagx:
+            if not boundary_x:
                 cx = min(x - 2, m - x - 3) if x > 0 else min(x + m + 2, -x - 2)
-            if not flagy:
+            if not boundary_y:
                 cy = min(y - 2, n - y - 3) if y > 0 else min(y + n + 2, -y - 2)
             print(f"Cropping {crp} at pos {pos} exceeds array edges, new cropping: {cy, cx}.")
         else:
