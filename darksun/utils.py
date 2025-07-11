@@ -2,7 +2,7 @@
 General utility functions for the darksun package.
 """
 
-from typing import Generator, Any
+from typing import Any, Generator
 from contextlib import contextmanager
 import time
 from datetime import datetime

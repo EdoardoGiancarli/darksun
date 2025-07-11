@@ -2,7 +2,7 @@
 IROS sources reconstruction analyses.
 """
 
-__all__ = [""]
+__all__ = []
 
 
 
