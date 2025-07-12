@@ -336,7 +336,6 @@ def catalogue_comparison(
             (catalogue.data['ID'] != cxb_tag)
         )
         associated_batch = catalogue.data[box]
-        print(associated_batch)
 
         if not any(associated_batch):
             sourceID = f'lemx-s{NEW_ID}'
