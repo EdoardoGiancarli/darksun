@@ -45,7 +45,7 @@ class Log:
             Log name.
     """
     def __init__(self, name: str | None = None) -> None:
-        self.name = f"{name.upper()} Log" if name else None
+        self.name = f"{name.upper()} Log" if name else ''
         self._log = None
         self._params = None
     
@@ -59,12 +59,7 @@ class Log:
         """Log parameter entries, with format and units."""
         return self._params
     
-    def _make_log(self, params: LogEntry | Sequence[LogEntry]) -> dict:
-        """Creates the log structure."""
-        params = (params,) if isinstance(params, LogEntry) else params
-        return {p.entry: [] for p in params}
-    
-    def initialize(self, params: LogEntry | Sequence[LogEntry]) -> dict[str, list]:
+    def initialize(self, params: LogEntry | Sequence[LogEntry]) -> None:
         """
         Initializes the Log structure with the specified parameter entries.
         Inside the Log, the parameters are accessible as keys.
@@ -72,21 +67,43 @@ class Log:
         Args:
             params (LogEntry | Sequence[LogEntry]):
                 Sequence with the parameter entries.
-        
-        Returns:
-            log (dict[str, list]):
-                Log structure with the parameter entries.
         """
-        self._log = self._make_log(params)
-        self._params = params
-        return self._log
+        def make_log(params: LogEntry | Sequence[LogEntry]) -> dict:
+            """
+            Creates the log structure.
+
+            Args:
+                params (LogEntry | Sequence[LogEntry]):
+                    Sequence with the parameter entries.
+            
+            Returns:
+                log (dict[str, list]):
+                    Log structure with the parameter entries.
+            """
+            params = (params,) if isinstance(params, LogEntry) else params
+            return {p.entry: [] for p in params}
     
-    def update(self, values: Sequence[tuple[str, int | float]]) -> None:
+        self._log = make_log(params)
+        self._params = params
+
+    def insert(self, entries: LogEntry | Sequence[LogEntry]) -> None:
         """
-        Updates the entries inside the Log.
+        Inserts the specified new entries in the Log.
 
         Args:
-            values (Sequence[tuple[str, int | float]]):
+            entries (LogEntry | Sequence[LogEntry]): New entries for the Log.
+        """
+        entries = (entries,) if isinstance(entries, LogEntry) else entries
+        for entry in entries:
+            self._log[entry.entry] = []
+        self._params += entries
+    
+    def update(self, values: Sequence[tuple[str, Any]]) -> None:
+        """
+        Updates the entries inside the Log by appending values.
+
+        Args:
+            values (Sequence[tuple[str, Any]]):
                 Sequence containing the name and the value of the
                 parameter to add to the database inside the Log.
         """
@@ -101,19 +118,17 @@ class Log:
             entry (str): Entry name of the Log.
             values (Sequence[Any]): Values for the entry.
         """
-        self._log[entry] = values
+        self._log[entry] += values
     
-    def insert(self, entries: LogEntry | Sequence[LogEntry]) -> None:
+    def replace_entry_values(self, entry: str, values: Sequence[Any]) -> None:
         """
-        Inserts the specified new entries in the Log.
+        Replace the Log entry values with the specified sequence.
 
         Args:
-            entries (LogEntry | Sequence[LogEntry]): New entries for the Log.
+            entry (str): Entry name of the Log.
+            values (Sequence[Any]): Values for the entry.
         """
-        entries = (entries,) if isinstance(entries, LogEntry) else entries
-        for entry in entries:
-            self._log[entry.entry] = []
-        self._params += entries
+        self._log[entry] = values
     
     def to_dataframe(self) -> DataFrame:
         """

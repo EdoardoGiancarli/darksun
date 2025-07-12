@@ -113,6 +113,40 @@ class TestLogging(TestCase):
         self.assertEqual(log.params, params + new_entries)
         self.assertEqual(log.log, expected)
     
+    def test_add_values(self):
+        """Tests if the sequence of values is added."""
+        params = (
+            LogEntry("par1", "J", "unit1"),
+            LogEntry("par2", "J", "unit2"),
+        )
+        log = create_log(params)
+        log.add_entry_values('par1', [0] * 10)
+        log.add_entry_values('par2', [0] * 10)
+        self.assertEqual(log.log['par1'], [0] * 10)
+        self.assertEqual(log.log['par2'], [0] * 10)
+
+        log.add_entry_values('par1', [0] * 10)
+        log.add_entry_values('par2', [0] * 10)
+        self.assertEqual(log.log['par1'], [0] * 20)
+        self.assertEqual(log.log['par2'], [0] * 20)
+
+    def test_replace_values(self):
+        """Tests if the sequence of values is replaced."""
+        params = (
+            LogEntry("par1", "J", "unit1"),
+            LogEntry("par2", "J", "unit2"),
+        )
+        log = create_log(params)
+        log.replace_entry_values('par1', [0] * 10)
+        log.replace_entry_values('par2', [0] * 10)
+        self.assertEqual(log.log['par1'], [0] * 10)
+        self.assertEqual(log.log['par2'], [0] * 10)
+
+        log.replace_entry_values('par1', [1] * 10)
+        log.replace_entry_values('par2', [1] * 10)
+        self.assertEqual(log.log['par1'], [1] * 10)
+        self.assertEqual(log.log['par2'], [1] * 10)
+
     def test_to_dataframe(self):
         """Tests if the Log is correctly converted to a DataFrame."""
         params = (
