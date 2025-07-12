@@ -304,7 +304,7 @@ def catalogue_comparison(
     """
     # set up
     cxb_tag = "gctr_diffuse"
-    NEW_ID = 0
+    NEW_ID = [1]
 
     # update Log
     params = (
@@ -329,19 +329,24 @@ def catalogue_comparison(
             return arg
     
         box = (
-            (ra - sigma * dra < catalogue.data['RA'] < ra + sigma * dra) &
-            (dec - sigma * ddec < catalogue.data['DEC'] < dec + sigma * ddec) &
+            (catalogue.data['RA'] > ra - sigma * dra) &
+            (catalogue.data['RA'] < ra + sigma * dra) &
+            (catalogue.data['DEC'] > dec - sigma * ddec) &
+            (catalogue.data['DEC'] < dec + sigma * ddec) &
             (catalogue.data['ID'] != cxb_tag)
         )
         associated_batch = catalogue.data[box]
+        print(associated_batch)
 
-        if not associated_batch:
+        if not any(associated_batch):
             sourceID = f'lemx-s{NEW_ID}'
-            NEW_ID += 1
-            return sourceID
+            NEW_ID[0] += 1
+        elif len(associated_batch) == 1:
+            sourceID = associated_batch['ID'][0]
         else:
             arg = closer_source(associated_batch)
-            sourceID = associated_batch[arg]
+            sourceID = associated_batch['ID'][arg]
+        return sourceID
     
     def sources_screening(df: DataFrame) -> DataFrame:
         """Removes repeating sources based on significance."""
@@ -354,7 +359,9 @@ def catalogue_comparison(
         log.log["dec"], log.log["ddec"],
     ):
         sourceID = candidate_identification(ra, dra, dec, ddec)
-        calibr_flux = catalogue.data[sourceID]['FLUX'] or -1
+        calibr_flux = (
+            catalogue.data[catalogue.data['ID'] == sourceID]['FLUX'] or -1
+        )
         log.update(values=(('ID', sourceID), ('calibr_flux', calibr_flux)))
     
     # sources screening based on significance
