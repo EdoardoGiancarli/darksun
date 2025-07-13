@@ -32,8 +32,8 @@ __all__ = [
 
 
 def run_IROS(
-    camera: CodedMaskCamera,
     *,
+    camera: CodedMaskCamera,
     sdl_camA: DataLoader,
     sdl_camB: DataLoader,
     max_iterations: int = 25,
