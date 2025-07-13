@@ -11,7 +11,8 @@ from astropy.wcs import WCS
 import pickle
 
 from bloodmoon.io import _exists_valid
-from darksun.data import DataLoader
+from .data import Log
+from .data import DataLoader
 
 __all__ = []
 
@@ -93,6 +94,41 @@ def _make_bintable(
            @@@@@@@@@@@@@@@   @@@@@@@@@@@@@@@
           @@@@@@@@@@@@@@@@@ @@@@@@@@@@@@@@@@@
 """
+
+def save_database(
+    *,
+    data_camA: Log,
+    data_camB: Log,
+    sdlA: DataLoader,
+    sdlB: DataLoader,
+    save_to: str | Path,
+) -> None:
+    """
+    Saves the WFM cameras databases to a FITS file
+    as Binary Tables, at the ext `1` and `2`.
+
+    Args:
+        database (dict):
+            Database with the analysis-stored data.
+        sdlA (DataLoader):
+            SDL instance for WFM camera A.
+        sdlB (DataLoader):
+            SDL instance for WFM camera B.
+        save_to (str | Path):
+            Directory path to save the FITS file.
+    """
+    print("# Saving data...")
+    # HDU list and Primary Header
+    hdu_list = fits.HDUList([])
+    primary_hdu = fits.PrimaryHDU()
+    hdu_list.append(primary_hdu)
+
+    # BinTables
+
+    # save data
+    hdu_list.writeto(save_to, output_verify="fix+ignore")
+    hdu_list.close()
+    print("# Saving completed!")
 
 
 def save_sky(
@@ -176,6 +212,33 @@ def save_pickle(data: object, save_to: str | Path) -> None:
        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   
        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@      
 """
+
+def load_database(filepath: str | Path) -> tuple[Log, Log]:
+    """
+    Loads the specified WFM camera databases having the
+    structure described in `Log` (in `data.py` module).
+
+    Args:
+        filepath (str | Path): Path to the FITS file.
+
+    Returns:
+        output (tuple[Log, Log]):
+            Containers with collected data for the camera `A`
+            and `B` of the WFM.
+    """
+    def load_data(filepath: Path) -> dict:
+        """Opens FITS file and stores data in a dict."""
+        with fits.open(filepath) as hdul:
+            hdus = (dict(hdul[1].header), dict(hdul[2].header))
+            hdus_data = (hdul[1].data, hdul[2].data)
+    
+    if not isinstance(filepath, Path):
+        filepath = Path(filepath)
+    if _exists_valid(filepath):
+        print("# Loading data...")
+        data = load_data(filepath)
+        print("# Loading completed!")
+        return data
 
 
 def load_sky(filepath: str | Path) -> tuple[NDArray]:
