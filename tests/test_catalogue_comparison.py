@@ -13,7 +13,7 @@ from darksun.data import create_log
 from darksun.data import get_catalogue
 from darksun.analyze import catalogue_comparison
 
-from tests.assets import _path_test_catalogue
+from .assets import _path_test_catalogue
 
 
 class TestCatalogueComparison(TestCase):
@@ -32,7 +32,7 @@ class TestCatalogueComparison(TestCase):
 
             ('s9', 274.0, dra, 69.0, ddec, 5),         # associated through distance and removing 'gctr_diffuse'
 
-            ('lemx-s1', 278.0, dra, 73.0, ddec, 5),     # associated with new sources
+            ('lemx-s1', 278.0, dra, 73.0, ddec, 5),    # associated with new sources
             ('lemx-s2', 281.0, dra, 76.0, ddec, 5),
             ('lemx-s3', 284.0, dra, 79.0, ddec, 5),
             ('lemx-s4', 257.0, dra, 76.0, ddec, 5),
@@ -59,16 +59,40 @@ class TestCatalogueComparison(TestCase):
         log = create_log(params)
 
         for entry in tuple(p.entry for p in log.params):
-            log.add_entry_values(entry, run[entry.upper()])
+            log.add_entry_values(entry, list(run[entry.upper()]))
         
         self.log = log
+        self.ids = [s.decode('utf-8') for s in run['ID']]  # convert b-str to str
 
-    def test_comparison(self):
+    def test_complete_comparison(self):
         """Tests if `catalogue_comparison` correctly works."""
         catalogue = get_catalogue(_path_test_catalogue)
-        db = catalogue_comparison(
+        log = catalogue_comparison(
             log=self.log,
-            catalogue=catalogue
+            catalogue=catalogue,
+            screening=False,
+        )
+        #print(log.to_dataframe())
+        np.testing.assert_array_equal(
+            np.array(log.log['ID'][:-2]),
+            np.array(self.ids[:-2]),
+            strict=False,
+        )
+    
+    def test_screening_comparison(self):
+        """Tests if repeating sources are removed."""
+        catalogue = get_catalogue(_path_test_catalogue)
+        log = catalogue_comparison(
+            log=self.log,
+            catalogue=catalogue,
+        )
+        #print(log.to_dataframe())
+        np.testing.assert_array_equal(
+            np.array(log.log['ID'][:-2]),
+            np.array(
+                ['s1', 's2', 's3', 's4', 's6', 's9', 'lemx-s1', 'lemx-s2', 'lemx-s3', 'lemx-s4']
+            ),
+            strict=False,
         )
 
 

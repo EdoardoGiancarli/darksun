@@ -282,10 +282,26 @@ def compute_parameters(
     return log
 
 
+def data_screening(
+    data: DataFrame,
+    groupby: str,
+    column: str,
+) -> DataFrame:
+    """
+    
+    """
+    return (
+        data.loc[
+            data.groupby(groupby)[column].idxmax()
+        ].sort_index()
+    )
+
+
 def catalogue_comparison(
     log: Log,
     catalogue: CatalogueLoader,
-) -> DataFrame:
+    screening: bool = True,
+) -> Log:
     """
     Compares the reconstructed IROS data with the catalogue,
     associating the candidates with the known sources.
@@ -295,20 +311,24 @@ def catalogue_comparison(
             IROS data output from `compute_parameters()`.
         catalogue (CatalogueLoader):
             Catalogue data for the WFM coded-mask camera.
+        screening (bool, optional (default=`True`)):
+            If `True`, the repeating sources in the database
+            are screened by significance comparison.
 
     Returns:
-        output (DataFrame):
-            Pandas DataFrame with the updated entries for the
-            input IROS candidates database, featuring sources
-            IDs and respective catalogues calibrated fluxes.
+        output (Log):
+            Log with the updated entries for the input IROS candidates,
+            featuring sources IDs and catalogues calibrated fluxes.
     """
     # set up
-    cxb_tag = "gctr_diffuse"
-    NEW_ID = [1]
+    KEYMAP = {
+        'cxb_tag': 'gctr_diffuse',
+        'NEW_ID': 1,
+    }
 
     # update Log
     params = (
-        LogEntry('ID', '20A', ''), LogEntry('calibr_flux', 'D', 'ph/cm2/s'),
+        LogEntry('ID', '20A', ''), LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
     )
     log.insert(params)
 
@@ -333,23 +353,24 @@ def catalogue_comparison(
             (catalogue.data['RA'] < ra + sigma * dra) &
             (catalogue.data['DEC'] > dec - sigma * ddec) &
             (catalogue.data['DEC'] < dec + sigma * ddec) &
-            (catalogue.data['ID'] != cxb_tag)
+            (catalogue.data['ID'] != KEYMAP['cxb_tag'])
         )
         associated_batch = catalogue.data[box]
 
         if not any(associated_batch):
-            sourceID = f'lemx-s{NEW_ID}'
-            NEW_ID[0] += 1
+            sourceID = f'lemx-s{KEYMAP['NEW_ID']}'
+            KEYMAP['NEW_ID'] += 1
         elif len(associated_batch) == 1:
             sourceID = associated_batch['ID'][0]
         else:
             arg = closer_source(associated_batch)
             sourceID = associated_batch['ID'][arg]
+        
         return sourceID
-    
-    def sources_screening(df: DataFrame) -> DataFrame:
-        """Removes repeating sources based on significance."""
-        return df
+
+    def flux_association(f: NDArray) -> float:
+        """Associates catalogue flux or placeholder."""
+        return f[0] if f.size > 0 else -1
 
     print("# Comparing with Catalogue...")
     # initial sources association
@@ -358,16 +379,21 @@ def catalogue_comparison(
         log.log["dec"], log.log["ddec"],
     ):
         sourceID = candidate_identification(ra, dra, dec, ddec)
-        calibr_flux = (
-            catalogue.data[catalogue.data['ID'] == sourceID]['FLUX'] or -1
-        )
-        log.update(values=(('ID', sourceID), ('calibr_flux', calibr_flux)))
+        catalogue_flux = flux_association(catalogue.data[catalogue.data['ID'] == sourceID]['FLUX'])
+        
+        log.update(values=(('ID', sourceID), ('catalogue_flux', catalogue_flux)))
     
     # sources screening based on significance
-    df = sources_screening(log.to_dataframe())
+    if screening:
+        df = data_screening(log.to_dataframe(), 'ID', 'snr')
+        for col, series in df.items():
+            log.replace_entry_values(
+                entry=col,
+                values=series,
+            )
 
     print("# Successful comparison!")
-    return df
+    return log
 
 
 # end
