@@ -27,7 +27,8 @@ from .data import Log
 from .data import create_log
 
 __all__ = [
-    "run_IROS", "compute_parameters", "catalogue_comparison"
+    "run_IROS", "compute_parameters",
+    "data_screening", "catalogue_comparison",
 ]
 
 
@@ -338,7 +339,7 @@ def catalogue_comparison(
         dec: float,
         ddec: float,
         sigma: int | float = 1,
-    ) -> str:
+    ) -> tuple[str, float]:
         """Candidate association from catalogue."""
 
         def closer_source(batch: FITS_rec) -> int:
@@ -359,18 +360,17 @@ def catalogue_comparison(
 
         if not any(associated_batch):
             sourceID = f'lemx-s{KEYMAP['NEW_ID']}'
+            flux = -1.0
             KEYMAP['NEW_ID'] += 1
         elif len(associated_batch) == 1:
             sourceID = associated_batch['ID'][0]
+            flux = associated_batch['FLUX'][0]
         else:
             arg = closer_source(associated_batch)
             sourceID = associated_batch['ID'][arg]
-        
-        return sourceID
+            flux = associated_batch['FLUX'][arg]
 
-    def flux_association(f: NDArray) -> float:
-        """Associates catalogue flux or placeholder."""
-        return f[0] if f.size > 0 else -1
+        return sourceID, flux
 
     print("# Comparing with Catalogue...")
     # initial sources association
@@ -378,19 +378,14 @@ def catalogue_comparison(
         log.log["ra"], log.log["dra"],
         log.log["dec"], log.log["ddec"],
     ):
-        sourceID = candidate_identification(ra, dra, dec, ddec)
-        catalogue_flux = flux_association(catalogue.data[catalogue.data['ID'] == sourceID]['FLUX'])
-        
-        log.update(values=(('ID', sourceID), ('catalogue_flux', catalogue_flux)))
+        sourceID, flux = candidate_identification(ra, dra, dec, ddec)
+        log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
     
     # sources screening based on significance
     if screening:
         df = data_screening(log.to_dataframe(), 'ID', 'snr')
         for col, series in df.items():
-            log.replace_entry_values(
-                entry=col,
-                values=series,
-            )
+            log.replace_entry_values(col, list(series))
 
     print("# Successful comparison!")
     return log

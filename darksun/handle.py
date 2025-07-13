@@ -11,7 +11,9 @@ from astropy.wcs import WCS
 import pickle
 
 from bloodmoon.io import _exists_valid
+from .types import LogEntry
 from .data import Log
+from .data import create_log
 from .data import DataLoader
 
 __all__ = []
@@ -97,8 +99,8 @@ def _make_bintable(
 
 def save_database(
     *,
-    data_camA: Log,
-    data_camB: Log,
+    log_camA: Log,
+    log_camB: Log,
     sdlA: DataLoader,
     sdlB: DataLoader,
     save_to: str | Path,
@@ -108,8 +110,10 @@ def save_database(
     as Binary Tables, at the ext `1` and `2`.
 
     Args:
-        database (dict):
-            Database with the analysis-stored data.
+        log_camA (Log):
+            Log instance with data from WFM camera A.
+        log_camB (Log):
+            Log instance with data from WFM camera B.
         sdlA (DataLoader):
             SDL instance for WFM camera A.
         sdlB (DataLoader):
@@ -117,6 +121,9 @@ def save_database(
         save_to (str | Path):
             Directory path to save the FITS file.
     """
+    logs = (log_camA, log_camB)
+    sdls = (sdlA, sdlB)
+
     print("# Saving data...")
     # HDU list and Primary Header
     hdu_list = fits.HDUList([])
@@ -124,6 +131,13 @@ def save_database(
     hdu_list.append(primary_hdu)
 
     # BinTables
+    for log, sdl in zip(logs, sdls):
+        columns = [
+            _make_column(p.entry, log.log[p.entry], p.frmt, p.unit)
+            for p in log.params
+        ]
+        table_hdu = _make_bintable(log.name, columns, sdl.header)
+        hdu_list.append(table_hdu)
 
     # save data
     hdu_list.writeto(save_to, output_verify="fix+ignore")
@@ -223,22 +237,35 @@ def load_database(filepath: str | Path) -> tuple[Log, Log]:
 
     Returns:
         output (tuple[Log, Log]):
-            Containers with collected data for the camera `A`
-            and `B` of the WFM.
+            Containers with collected data for
+            the camera `A` and `B` of the WFM.
     """
-    def load_data(filepath: Path) -> dict:
+    def load_data(filepath: Path, ext: int) -> Log:
         """Opens FITS file and stores data in a dict."""
-        with fits.open(filepath) as hdul:
-            hdus = (dict(hdul[1].header), dict(hdul[2].header))
-            hdus_data = (hdul[1].data, hdul[2].data)
+        with fits.open(filepath) as hdu:
+            header = dict(hdu[ext].header)
+            data = hdu[ext].data
+        params = tuple(
+            LogEntry(
+                entry=header[f"TTYPE{idx}"].lower() if header[f"TTYPE{idx}"] != 'ID' else header[f"TTYPE{idx}"],
+                frmt=header[f"TFORM{idx}"],
+                unit=header[f"TUNIT{idx}"] if f"TUNIT{idx}" in header.keys() else ""
+            )
+            for idx in range(1, len(data[0]) + 1)
+        )
+        log = create_log(params, header["EXTNAME"])
+        for entry in log.log.keys():
+            log.add_entry_values(entry, list(data[entry.upper()]))
+        return log
     
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
     if _exists_valid(filepath):
         print("# Loading data...")
-        data = load_data(filepath)
+        logA = load_data(filepath, ext=1)
+        logB = load_data(filepath, ext=2)
         print("# Loading completed!")
-        return data
+        return logA, logB
 
 
 def load_sky(filepath: str | Path) -> tuple[NDArray]:
