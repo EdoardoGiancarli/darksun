@@ -45,7 +45,7 @@ class Log:
             Log name.
     """
     def __init__(self, name: str | None = None) -> None:
-        self.name = f"{name.upper()} Log" if name else ''
+        self.name = f"{name.upper()}" if name else ''
         self._log = None
         self._params = None
     
