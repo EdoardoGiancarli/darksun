@@ -120,10 +120,10 @@ def run_IROS(
         parA, parB = candidates
 
         log_camA.update(
-            values=tuple((p.entry, val) for p, val in zip(params, callback(parA)))
+            tuple((p.entry, val) for p, val in zip(params, callback(parA)))
         )
         log_camB.update(
-            values=tuple((p.entry, val) for p, val in zip(params, callback(parB)))
+            tuple((p.entry, val) for p, val in zip(params, callback(parB)))
         )
     
     return (log_camA, log_camB), residuals
