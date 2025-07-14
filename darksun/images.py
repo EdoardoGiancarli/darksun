@@ -299,13 +299,14 @@ def WFM_composition(
             File path for the camera B sky.
     
     Returns:
-        sky (NDArray):
-            WFM cameras sky composition.
-        snr (NDArray):
-            WFM composed sky significance computed by taking
-            the max of the two cameras individual sky SNR.
-        wcs (WCS):
-            Output reprojected WCS fit.
+        output (tuple[NDArray, NDArray, WCS]):
+            - sky (NDArray):
+                WFM cameras sky composition.
+            - snr (NDArray):
+                WFM composed sky significance computed by taking
+                the max of the two cameras individual sky SNR.
+            - wcs (WCS):
+                Output reprojected WCS fit.
 
     Notes:
         - If the WCS fit keys are not present in the camera skies headers,
