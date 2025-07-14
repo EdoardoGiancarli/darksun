@@ -204,13 +204,13 @@ def compute_parameters(
             abs(up_dec - down_dec) / 4,
         )
     
-    def effective_area(sx: float, sy: float) -> float:
+    def effective_area(shiftx: float, shifty: float) -> float:
         """Computes detector area seen by the source."""
 
-        def process_mask(i: float, j: float) -> NDArray:
+        def process_mask(sx: float, sy: float) -> NDArray:
             """Process mask pattern."""
             mask_maybe_vignetted = apply_vignetting(
-                camera, camera.mask, i, j,
+                camera, camera.mask, sx, sy,
             ) if vignetting else camera.mask
             
             mask_maybe_vignetted_maybe_psfy = convolve(
@@ -220,7 +220,9 @@ def compute_parameters(
     
         n, m = camera.shape_sky
         proj = np.zeros(camera.shape_detector)
-        components = _rbilinear(sx, sy, camera.bins_sky.x, camera.bins_sky.y)
+        components = _rbilinear(
+            shiftx, shifty, camera.bins_sky.x, camera.bins_sky.y
+        )
         i_min, i_max, j_min, j_max = _detector_footprint(camera)
 
         for (c_i, c_j), weight in components.items():
