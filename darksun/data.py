@@ -25,7 +25,10 @@ from .types import LogEntry
 from .filtering import filter_data
 from .filtering import filter_catalogue
 
-__all__ = []
+__all__ = [
+    "Log", "create_log", "DataLoader", "get_data",
+    "CatalogueLoader", "get_catalogue", "fit_WCS"
+]
 
 
 class Log:
