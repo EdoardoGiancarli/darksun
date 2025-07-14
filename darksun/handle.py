@@ -282,7 +282,7 @@ def load_sky(filepath: str | Path) -> tuple[NDArray, NDArray]:
     Returns:
         output (tuple[NDArray, NDArray]):
             - sky (NDArray): 2D array for the sky.
-            - snr (NDArray): sky significance.
+            - snr (NDArray): Sky significance.
     """
     def load_data(filepath: Path) -> tuple[NDArray, NDArray]:
         """Open FITS and store Images in 2D-array."""
