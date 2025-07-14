@@ -153,6 +153,11 @@ def compute_parameters(
             CodedMaskCamera instance used for imaging and reconstruction.
         sdl (DataLoader):
             Data container instance for chosen WFM coded-mask camera.
+        vignetting (bool, optional (default=`True`)):
+            If `True`, the model used for optimization will simulate vignetting.
+        psfy (bool, optional (default=`True`)):
+            If `True`, the model used for optimization will simulate detector
+            position reconstruction effects.
 
     Returns:
         output (Log):
@@ -235,11 +240,11 @@ def compute_parameters(
         return proj.sum() * px_area
 
     # compute parameters
-    px_idxs = tuple(
-        shift2pos(camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y)
+    y, x = zip(
+        *tuple(shift2pos(camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
-    log.add_entry_values('y', [idx[0] for idx in px_idxs])
-    log.add_entry_values('x', [idx[1] for idx in px_idxs])
+    log.add_entry_values('y', list(y))
+    log.add_entry_values('x', list(x))
 
     thetas_x, thetas_y = map(
         lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
@@ -255,18 +260,20 @@ def compute_parameters(
     log.add_entry_values('danglex', list(dthetas_x))
     log.add_entry_values('dangley', list(dthetas_y))
 
-    coords = tuple(
-        shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y)
+    ras, decs = zip(
+        *tuple(shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
-    dcoords = tuple(
-        eq_coords_errors(sx, dsx, sy, dsy, sdl) for sx, dsx, sy, dsy in zip(
-            shifts_x, dshifts_x, shifts_y, dshifts_y,
+    dras, ddecs = zip(
+        *tuple(
+            eq_coords_errors(sx, dsx, sy, dsy, sdl) for sx, dsx, sy, dsy in zip(
+                shifts_x, dshifts_x, shifts_y, dshifts_y,
+            )
         )
     )
-    log.add_entry_values('ra', [c.ra for c in coords])
-    log.add_entry_values('dec', [c.dec for c in coords])
-    log.add_entry_values('dra', [deq[0] for deq in dcoords])
-    log.add_entry_values('ddec', [deq[1] for deq in dcoords])
+    log.add_entry_values('ra', list(ras))
+    log.add_entry_values('dec', list(decs))
+    log.add_entry_values('dra', list(dras))
+    log.add_entry_values('ddec', list(ddecs))
 
     rates = [f / exposure for f in fluences]
     drates = [df / exposure for df in dfluences]

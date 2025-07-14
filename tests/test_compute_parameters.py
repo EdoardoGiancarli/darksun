@@ -26,13 +26,13 @@ class TestComputeParameters(TestCase):
         self.sdl = get_data(_path_test_SDL)
         self.sdl.header['EXPOSURE'] = 1e1
 
-        self.shifts_x = [0.0]
-        self.dshifts_x = [0.125]
-        self.shifts_y = [0.0]
-        self.dshifts_y = [0.2]
-        self.fluences = [1e2]
-        self.dfluences = [1e1]
-        self.snrs = [10.]
+        self.shifts_x = [0.0] * 2
+        self.dshifts_x = [0.125] * 2
+        self.shifts_y = [0.0] * 2
+        self.dshifts_y = [0.2] * 2
+        self.fluences = [1e2] * 2
+        self.dfluences = [1e1] * 2
+        self.snrs = [10.] * 2
 
         self.iros_log = create_log(
             params=(
