@@ -271,7 +271,7 @@ def load_database(filepath: str | Path) -> tuple[Log, Log]:
         return logA, logB
 
 
-def load_sky(filepath: str | Path) -> tuple[NDArray]:
+def load_sky(filepath: str | Path) -> tuple[NDArray, NDArray]:
     """
     Loads sky and its SNR from FITS.
 
@@ -279,11 +279,11 @@ def load_sky(filepath: str | Path) -> tuple[NDArray]:
         filepath (str | Path): Path to the FITS file.
 
     Returns:
-        output (tuple):
+        output (tuple[NDArray, NDArray]):
             - sky (NDArray): 2D array for the sky.
             - snr (NDArray): sky significance.
     """
-    def load_data(filepath: Path) -> tuple[NDArray]:
+    def load_data(filepath: Path) -> tuple[NDArray, NDArray]:
         """Open FITS and store Images in 2D-array."""
         with fits.open(filepath) as hdu:
             sky, snr = hdu[1].data, hdu[2].data
