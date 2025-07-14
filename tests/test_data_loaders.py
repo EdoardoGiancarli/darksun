@@ -8,6 +8,7 @@ from unittest import TestCase
 import numpy as np
 
 from bloodmoon.types import CoordEquatorial
+
 from darksun.data import get_data, get_catalogue
 
 from .assets import _path_test_SDL

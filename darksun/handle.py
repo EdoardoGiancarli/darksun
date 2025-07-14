@@ -11,6 +11,7 @@ from astropy.wcs import WCS
 import pickle
 
 from bloodmoon.io import _exists_valid
+
 from .types import LogEntry
 from .data import Log
 from .data import create_log

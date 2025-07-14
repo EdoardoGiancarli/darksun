@@ -6,11 +6,9 @@ import unittest
 from unittest import TestCase
 
 import numpy as np
-import pandas as pd
 
 from darksun.types import LogEntry
-from darksun.data import create_log
-from darksun.data import get_catalogue
+from darksun.data import create_log, get_catalogue
 from darksun.analyze import catalogue_comparison
 
 from .assets import _path_test_catalogue

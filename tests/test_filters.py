@@ -8,10 +8,8 @@ from unittest import TestCase
 import numpy as np
 
 from bloodmoon.types import CoordEquatorial
-from darksun.filtering import filter_data
-from darksun.filtering import flux_filter
-from darksun.filtering import source_filter
-from darksun.filtering import filter_catalogue
+
+from darksun.filtering import filter_data, flux_filter, source_filter, filter_catalogue
 
 
 class TestFilters(TestCase):

@@ -5,9 +5,7 @@ Tests for IROS candidates parameters computing.
 import unittest
 from unittest import TestCase
 
-from bloodmoon.coords import shift2equatorial
-from bloodmoon.coords import shift2pos
-from bloodmoon.coords import shift2angle
+from bloodmoon.coords import shift2equatorial, shift2pos, shift2angle
 from bloodmoon.mask import codedmask
 
 from darksun.types import LogEntry
