@@ -25,7 +25,7 @@ Notes:
       To repeat the step, just delete the output files of that step.
 
 Dependencies for running the pipeline:
-    - Change paths for data in `_handle_dirpaths()` in `_IROS_support.py`
+    - Change paths for data in `_handle_dirpaths()` in `_pipeline_support.py`
 
 TODO:
     - fix skies upscaling for output visualisation
@@ -50,28 +50,28 @@ MASK_FITS: str = "wfm_mask.fits"
 THIN_MASK: bool = False             # selects if infinitely opaque and thin mask (removes vignetting effects)
 
 #### --- OBSERVATION DATA
-SKYFIELD: str = "GalacticCenter"                                                          # skyfield selection
-DATA_FITS: str = "20250430_galctr_rxte_sax_2-50keV_1ks_realmask_infdet_sources_cxb"       # directory with FITS files from WFM
+#SKYFIELD: str = "GalacticCenter"                                                          # skyfield selection
+#DATA_FITS: str = "20250430_galctr_rxte_sax_2-50keV_1ks_realmask_infdet_sources_cxb"       # directory with FITS files from WFM
 
-#skyfield: str = "IROSDummy"
-#data_FITS: str = "catalog_withCXB_1Crab_infdet_2-50keV_1ks"
+SKYFIELD: str = "IROSDummy"
+DATA_FITS: str = "catalog_noCXB_1Crab_infdet_2-50keV_1ks"
 
 ID_CAMERA_A: str = "cam1a"
 ID_CAMERA_B: str = "cam1b"
 DATASET: str = "detected"
 
 #### --- IMAGES UPSCALING
-UPSX_0: int = 5                     # initial upscaling (with which IROS is performed)
+UPSX_0: int = 1                     # initial upscaling (with which IROS is performed)
 UPSY_0: int = 1
 
-UPSX_FINAL: int = 5                 # final upscaling for skies and visualisation
+UPSX_FINAL: int = 1                 # final upscaling for skies and visualisation
 UPSY_FINAL: int = 1
 
 #### --- ANALYSIS ID
-ANALYSIS_ID: str = "galactic_center_detected"
+ANALYSIS_ID: str = "testing_pipeline"
 
 #### --- IROS SETUP
-MAX_ITERATIONS: int = 30
+MAX_ITERATIONS: int = 1
 SNR_THRESHOLD: int | float = 5
 
 WFM_SKY_COMPOSITION: bool = True    # selects if the WFM cameras are to be joined to get the composed sky

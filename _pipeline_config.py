@@ -123,7 +123,7 @@ def run(params: PipelineParams) -> None:
             is_file(res_camB)
         ):
             # IROS
-            log_camA, log_camB, skies = ds.run_IROS(
+            logs, skies = ds.run_IROS(
                 camera=wfm,
                 sdl_camA=sdlA,
                 sdl_camB=sdlB,
@@ -136,6 +136,7 @@ def run(params: PipelineParams) -> None:
             )
             # save output databases
             if not is_file(params.iros_output_name):
+                log_camA, log_camB = logs
                 ds.save_database(
                     log_camA=log_camA,
                     log_camB=log_camB,
@@ -241,7 +242,7 @@ def run(params: PipelineParams) -> None:
         ):
             with ds.timer("IROS reconstructed skies"):
                 skies = tuple(
-                    ds.make_sky(logID, wfm, params.vignetting, params.psfy, res)
+                    ds.make_sky(logID.log, wfm, params.vignetting, params.psfy, res)
                     for logID, res in zip(logs, skies)
                 )
                 snrs = tuple(snratio(sky, np.clip(var_, a_min=1, a_max=None)) for sky, var_ in zip(skies, variances))

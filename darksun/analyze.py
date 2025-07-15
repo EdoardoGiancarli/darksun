@@ -96,8 +96,8 @@ def run_IROS(
         
     # generate IROS output log
     params = (
-        LogEntry('shiftx', 'D', 'mm'), LogEntry('dshiftx', 'D', 'mm'),
-        LogEntry('shifty', 'D', 'mm'), LogEntry('dshifty', 'D', 'mm'),
+        LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
+        LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
         LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
         LogEntry('snr', 'D', ''),
     )
@@ -173,8 +173,8 @@ def compute_parameters(
     # insert new entries
     params = (
         LogEntry('y', 'J', 'px'), LogEntry('x', 'J', 'px'),
-        LogEntry('anglex', 'D', 'deg'), LogEntry('danglex', 'D', 'deg'),
-        LogEntry('angley', 'D', 'deg'), LogEntry('dangley', 'D', 'deg'),
+        LogEntry('angle_x', 'D', 'deg'), LogEntry('dangle_x', 'D', 'deg'),
+        LogEntry('angle_y', 'D', 'deg'), LogEntry('dangle_y', 'D', 'deg'),
         LogEntry('ra', 'D', 'deg'), LogEntry('dra', 'D', 'deg'),
         LogEntry('dec', 'D', 'deg'), LogEntry('ddec', 'D', 'deg'),
         LogEntry('rate', 'D', 'ph/s'), LogEntry('drate', 'D', 'ph/s'),
@@ -182,8 +182,8 @@ def compute_parameters(
     )
     log.insert(params)
 
-    shifts_x, dshifts_x = log.log['shiftx'], log.log['dshiftx']
-    shifts_y, dshifts_y = log.log['shifty'], log.log['dshifty']
+    shifts_x, dshifts_x = log.log['shift_x'], log.log['dshift_x']
+    shifts_y, dshifts_y = log.log['shift_y'], log.log['dshift_y']
     fluences, dfluences = log.log['fluence'], log.log['dfluence']
 
     def angle_error(shift: float, dshift: float) -> float:
@@ -255,10 +255,10 @@ def compute_parameters(
         (shifts_x, dshifts_x),
         (shifts_y, dshifts_y),
     )
-    log.add_entry_values('anglex', list(thetas_x))
-    log.add_entry_values('angley', list(thetas_y))
-    log.add_entry_values('danglex', list(dthetas_x))
-    log.add_entry_values('dangley', list(dthetas_y))
+    log.add_entry_values('angle_x', list(thetas_x))
+    log.add_entry_values('angle_y', list(thetas_y))
+    log.add_entry_values('dangle_x', list(dthetas_x))
+    log.add_entry_values('dangle_y', list(dthetas_y))
 
     ras, decs = zip(
         *tuple(shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
