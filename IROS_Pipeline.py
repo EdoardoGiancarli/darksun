@@ -61,20 +61,20 @@ ID_CAMERA_B: str = "cam1b"
 DATASET: str = "detected"
 
 #### --- IMAGES UPSCALING
-UPSX_0: int = 1                     # initial upscaling (with which IROS is performed)
+UPSX_0: int = 5                     # initial upscaling (with which IROS is performed)
 UPSY_0: int = 1
 
-UPSX_FINAL: int = 1                 # final upscaling for skies and visualisation
+UPSX_FINAL: int = 5                 # final upscaling for skies and visualisation
 UPSY_FINAL: int = 1
 
 #### --- ANALYSIS ID
 ANALYSIS_ID: str = "testing_pipeline"
 
 #### --- IROS SETUP
-MAX_ITERATIONS: int = 1
+MAX_ITERATIONS: int = 9
 SNR_THRESHOLD: int | float = 5
 
-WFM_SKY_COMPOSITION: bool = True    # selects if the WFM cameras are to be joined to get the composed sky
+WFM_SKY_COMPOSITION: bool = False    # selects if the WFM cameras are to be joined to get the composed sky
 
 #### --- DATA FILTERS SETUP
 # photons energy filter - [keV]
