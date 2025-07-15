@@ -19,20 +19,21 @@ def _handle_dirpaths(
     mask: str,
     skyfield: str,
     simul: str,
-    test_name: str | None = None,
+    run_name: str | None = None,
 ) -> tuple[str]:
     """Handles paths depending on the OS."""
+    # TODO: use os.path.join to be more general (still, the root folder has to be written as `/mnt`...)
 
     # define paths for data and output files
     if Path(base_path := OS_SELECT['DEBIAN']).is_dir():
         mask_path = f"{base_path}/Simulations/{mask}"                 # dirpath to WFM mask file
         data_path = f"{base_path}/Simulations/{skyfield}/{simul}/"    # dirpath with simul files
 
-        if test_name:
+        if run_name:
             save_path = f"{base_path}/Outputs/Out{skyfield}/{simul}"  # dirpath to save output data
-            if not Path(f"{save_path}/{test_name}").is_dir():
-                os.mkdir(f"{save_path}/{test_name}")
-            save_path += f"/{test_name}/"
+            if not Path(f"{save_path}/{run_name}").is_dir():
+                os.mkdir(f"{save_path}/{run_name}")
+            save_path += f"/{run_name}/"
         else:
             save_path = None
         
@@ -40,11 +41,11 @@ def _handle_dirpaths(
         mask_path = f"{base_path}/{mask}"
         data_path = f"{base_path}/{skyfield}/{simul}/"
 
-        if test_name:
+        if run_name:
             save_path = base_path
-            if not Path(f"{save_path}/{test_name}").is_dir():
-                os.mkdir(f"{save_path}/{test_name}")
-            save_path += f"/{test_name}/"
+            if not Path(f"{save_path}/{run_name}").is_dir():
+                os.mkdir(f"{save_path}/{run_name}")
+            save_path += f"/{run_name}/"
         else:
             save_path = None
 
@@ -126,8 +127,10 @@ class PipelineParams:
             Names for the IROS reconstructed skies FITS files.
         out_comp_name (str):
             Name for the IROS reconstructed sky composition FITS file.
-        energy_range (tuple[int | float | None, int | float | None]):
-            Energy range in keV for the data filtering.
+        E_min (int | float | None):
+            Minimum photons energy in [keV] for the data filtering.
+        E_max (int | float | None):
+            Maximum photons energy in [keV] for the data filtering.
         coords (CoordEquatorial | Sequence[CoordEquatorial] | None):
             Input photons RA/Dec (or sequence of RA/Dec) to filter out.
         n (int | tuple[int] | None):
@@ -156,33 +159,34 @@ class PipelineParams:
     DB_name: str
     out_names: tuple[str, str]
     out_comp_name: str
-    energy_range: tuple[int | float | None, int | float | None]
+    E_min: int | float | None
+    E_max: int | float | None
     coords: CoordEquatorial | Sequence[CoordEquatorial] | None
     n: int | tuple[int, int] | None
     flux_range: tuple[int | float | None, int | float | None]
 
 
-def initialize_pipeline(
+def config_parameters(
     *,
     mask: str,
     thin_mask: bool,
     skyfield: str,
     skydata: str,
-    wfm_cameras: tuple[str],
+    wfm_cameras: tuple[str, str],
     dataset: str,
-    start_ups: tuple[int],
-    final_ups: tuple[int],
-    testID: str | None,
-    iros_max_iterations: int = 20,
-    iros_snr_threshold: int | float = 5,
-    sky_compositions: bool = False,
-    energy_range: int | tuple[int, int] | None = None,
-    coords: tuple[float, float] | Sequence[tuple[float, float]] | None = None,
-    n: int | tuple[int, int] | None = None,
-    flux_range: int | float | tuple[int | float, int | float] | None = None,
+    start_ups: tuple[int, int],
+    final_ups: tuple[int, int],
+    analysisID: str | None,
+    iros_max_iterations: int,
+    iros_snr_threshold: int | float,
+    sky_compositions: bool,
+    energy_range: tuple[int | float | None, int | float | None] | None,
+    coords: tuple[float, float] | Sequence[tuple[float, float]] | None,
+    n: int | tuple[int, int] | None,
+    flux_range: tuple[int | float | None, int | float | None] | None,
 ) -> PipelineParams:
     """
-    Initializes the IROS pipeline by processing input parameters.
+    Configures the IROS pipeline by processing input parameters.
 
     Args:
         mask (str):
@@ -193,30 +197,30 @@ def initialize_pipeline(
             Name of the sky-field simulation (e.g., 'Crab', 'GalacticCenter', ...).
         skydata (str):
             Name of the directory with the sky-data simulation.
-        wfm_cameras (tuple[str]):
+        wfm_cameras (tuple[str, str]):
             Name of the WFM cameras (e.g., `('cam1a', 'cam1b')`).
         dataset (str):
             Photons position reconstruction effects. Either 'detected' or 'reconstructed'.
-        start_ups (tuple[int]):
-            Starting upscaling values.
-        final_ups (tuple[int]):
-            Final upscaling values.
-        testID (str | None):
+        start_ups (tuple[int, int]):
+            Starting upscaling values (x, y).
+        final_ups (tuple[int, int]):
+            Final upscaling values (x, y).
+        analysisID (str | None):
             Test name.
-        iros_max_iterations (int, optional (default=`20`)):
+        iros_max_iterations (int):
             Maximum number of iterations for the IROS loop.
-        iros_snr_threshold (int | float, optional (default=`5`)):
+        iros_snr_threshold (int | float):
             Minimum SNR value required to continue the iterative source removal process.
-        sky_compositions (bool, optional (default=`False`)):
+        sky_compositions (bool):
             Flag for WFM sky compositions.
-        energy_range (tuple[int | float | None, int | float | None], optional (default=`None`)):
+        energy_range (tuple[int | float | None, int | float | None] | None):
             Energy range in keV for the data filtering, to be interpreted as (`E_min`, `E_max`).
-        coords (tuple[float, float] | Sequence[tuple[float, float]] | None, optional (default=`None`)):
+        coords (tuple[float, float] | Sequence[tuple[float, float]] | None):
             Input photons RA/Dec (or sequence of RA/Dec) to filter out.
-        n (int | tuple[int] | None, optional (default=`None`)):
+        n (int | tuple[int, int] | None):
             Filtered interval of sources, up to the n-th brightest
             source or from `n[0]` to `n[1]` if `n` is a tuple.
-        flux_range (tuple[int | float | None, int | float | None], optional (default=`None`)):
+        flux_range (tuple[int | float | None, int | float | None] | None):
             Flux range in ph/cm2/s for the data filtering, to be interpreted as (`F_min`, `F_max`).
     
     Returns:
@@ -231,19 +235,19 @@ def initialize_pipeline(
         print(
             f"\n# IROS Pipeline Report\n"
             f"  - Testing skyfield: '{skyfield}'\n"
-            f"  - Output folder name: '{testID}'\n"
-            f"  - Dataset type: '{params.dataset}'\n"
+            f"  - Output folder name: '{analysisID}'\n"
+            f"  - Dataset type: '{dataset}'\n"
             f"  - Mask type: '{"ideal" if thin_mask else "realistic"}'\n"
             f"  - Vignetting: {params.vignetting}\n"
             f"  - Psfy: {params.psfy}\n"
-            f"  - Starting upscaling (x, y): {params.start_ups}\n"
-            f"  - Final upscaling (x, y): {params.final_ups}\n"
-            f"  - Max IROS iteration: {params.iros_max_iterations}\n"
-            f"  - Sky compositions: {params.sky_compositions}\n"
-            f"  - Filtered photons energy range [keV]: {params.energy_range}\n"
-            f"  - Excluded photons RA/Dec [deg]: {params.coords}\n"
-            f"  - Catalog selected brighest sources: {params.n}\n"
-            f"  - Catalog sources flux min/range [ph/cm2/s]: {params.flux_range}\n"
+            f"  - Starting upscaling (x, y): {start_ups}\n"
+            f"  - Final upscaling (x, y): {final_ups}\n"
+            f"  - Max IROS iteration: {iros_max_iterations}\n"
+            f"  - Sky compositions: {sky_compositions}\n"
+            f"  - Filtered photons energy range [keV]: {energy_range}\n"
+            f"  - Excluded photons RA/Dec [deg]: {coords}\n"
+            f"  - Catalog selected brighest sources: {n}\n"
+            f"  - Catalog sources flux min/range [ph/cm2/s]: {flux_range}\n"
         )
 
     # configure n and flux_range for catalogs filtering
@@ -255,7 +259,7 @@ def initialize_pipeline(
         mask=mask,
         skyfield=skyfield,
         simul=skydata,
-        test_name=testID,
+        run_name=analysisID,
     )
 
     # mask/detector corrections
@@ -264,18 +268,22 @@ def initialize_pipeline(
     # output files names (simul skies, iros output DB and sky residuals, sources and catalog-compared DB, IROS skies)
     cam_a, cam_b = wfm_cameras
 
-    simul_names = tuple(save_path + f"sky_SIMUL_{cam.upper()}_TEST_{testID}.fits" for cam in (cam_a, cam_b))
-    simul_comp_name = save_path + f"COMPOSED_sky_SIMUL_{cam_a.upper()}_{cam_b.upper()}_TEST_{testID}.fits"
+    simul_names = tuple(save_path + f"sky_SIMUL_{cam.upper()}_TEST_{analysisID}.fits" for cam in (cam_a, cam_b))
+    simul_comp_name = save_path + f"COMPOSED_sky_SIMUL_{cam_a.upper()}_{cam_b.upper()}_TEST_{analysisID}.fits"
 
-    iros_output_name = save_path + f"IROS_output_TEST_{testID}.fits"
-    res_names = tuple(save_path + f"skyRES_IROS_{cam.upper()}_TEST_{testID}.fits" for cam in (cam_a, cam_b))
-    res_comp_name = save_path + f"COMPOSED_skyRES_IROS_{cam_a.upper()}_{cam_b.upper()}_TEST_{testID}.fits"
+    iros_output_name = save_path + f"IROS_output_TEST_{analysisID}.fits"
+    res_names = tuple(save_path + f"skyRES_IROS_{cam.upper()}_TEST_{analysisID}.fits" for cam in (cam_a, cam_b))
+    res_comp_name = save_path + f"COMPOSED_skyRES_IROS_{cam_a.upper()}_{cam_b.upper()}_TEST_{analysisID}.fits"
 
-    iros_data_name = save_path + f"IROS_data_TEST_{testID}.fits"
-    DB_name = save_path + f"IROS_sources_database_TEST_{testID}.fits"
+    iros_data_name = save_path + f"IROS_data_TEST_{analysisID}.fits"
+    DB_name = save_path + f"IROS_sources_database_TEST_{analysisID}.fits"
 
-    out_names = tuple(save_path + f"OUTsky_IROS_{cam.upper()}_TEST_{testID}.fits" for cam in (cam_a, cam_b))
-    out_comp_name = save_path + f"COMPOSED_OUTsky_IROS_{cam_a.upper()}_{cam_b.upper()}_TEST_{testID}.fits"
+    out_names = tuple(save_path + f"OUTsky_IROS_{cam.upper()}_TEST_{analysisID}.fits" for cam in (cam_a, cam_b))
+    out_comp_name = save_path + f"COMPOSED_OUTsky_IROS_{cam_a.upper()}_{cam_b.upper()}_TEST_{analysisID}.fits"
+
+    # filters params
+    if energy_range is None: E_min, E_max = None, None
+    elif any(energy_range): E_min, E_max = energy_range
 
     params = PipelineParams(
         mask_file=mask_file,
@@ -299,7 +307,8 @@ def initialize_pipeline(
         DB_name=DB_name,
         out_names=out_names,
         out_comp_name=out_comp_name,
-        energy_range=energy_range,
+        E_min=E_min,
+        E_max=E_max,
         coords=coords,
         n=n,
         flux_range=flux_range,
