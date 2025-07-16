@@ -9,6 +9,10 @@ r"""
 Darksun is a `bloodmoon` package for handling IROS-based analyses.
 """
 
+__version__ = "0.1.0"
+__author__ = "Edoardo Giancarli"
+
+
 from .types import LogEntry
 
 from .analyze import run_IROS
