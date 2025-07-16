@@ -43,8 +43,6 @@ from bloodmoon.types import CoordEquatorial
 """
 PIPELINE SET-UP.
 """
-print("\n#### INITIALIZING IROS PIPELINE")
-
 #### --- WIDE FIELD MONITOR MASK
 MASK_FITS: str = "wfm_mask.fits"
 THIN_MASK: bool = False             # selects if infinitely opaque and thin mask (removes vignetting effects)
@@ -54,7 +52,7 @@ THIN_MASK: bool = False             # selects if infinitely opaque and thin mask
 #DATA_FITS: str = "20250430_galctr_rxte_sax_2-50keV_1ks_realmask_infdet_sources_cxb"       # directory with FITS files from WFM
 
 SKYFIELD: str = "IROSDummy"
-DATA_FITS: str = "catalog_noCXB_1Crab_infdet_2-50keV_1ks"
+DATA_FITS: str = "catalog_withCXB_1Crab_infdet_2-50keV_1ks"
 
 ID_CAMERA_A: str = "cam1a"
 ID_CAMERA_B: str = "cam1b"
@@ -74,7 +72,7 @@ ANALYSIS_ID: str = "testing_pipeline"
 MAX_ITERATIONS: int = 9
 SNR_THRESHOLD: int | float = 5
 
-WFM_SKY_COMPOSITION: bool = False    # selects if the WFM cameras are to be joined to get the composed sky
+WFM_SKY_COMPOSITION: bool = False   # selects if the WFM cameras are to be joined to get the composed sky
 
 #### --- DATA FILTERS SETUP
 # photons energy filter - [keV]
