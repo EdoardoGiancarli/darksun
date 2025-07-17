@@ -34,16 +34,16 @@ class TestComputeParameters(TestCase):
 
         self.iros_log = create_log(
             params=(
-                LogEntry('shiftx', 'D', 'mm'), LogEntry('dshiftx', 'D', 'mm'),
-                LogEntry('shifty', 'D', 'mm'), LogEntry('dshifty', 'D', 'mm'),
+                LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
+                LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
                 LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
                 LogEntry('snr', 'D', ''),
             )
         )
-        self.iros_log.add_entry_values('shiftx', self.shifts_x)
-        self.iros_log.add_entry_values('dshiftx', self.dshifts_x)
-        self.iros_log.add_entry_values('shifty', self.shifts_y)
-        self.iros_log.add_entry_values('dshifty', self.dshifts_y)
+        self.iros_log.add_entry_values('shift_x', self.shifts_x)
+        self.iros_log.add_entry_values('dshift_x', self.dshifts_x)
+        self.iros_log.add_entry_values('shift_y', self.shifts_y)
+        self.iros_log.add_entry_values('dshift_y', self.dshifts_y)
         self.iros_log.add_entry_values('fluence', self.fluences)
         self.iros_log.add_entry_values('dfluence', self.dfluences)
         self.iros_log.add_entry_values('snr', self.snrs)
@@ -62,7 +62,7 @@ class TestComputeParameters(TestCase):
         )
         self.assertEqual(
             (shift2angle(self.wfm, self.shifts_x[0]), shift2angle(self.wfm, self.shifts_y[0])),
-            (log.log['anglex'][0], log.log['angley'][0])
+            (log.log['angle_x'][0], log.log['angle_y'][0])
         )
         self.assertEqual(
             shift2equatorial(self.sdl, self.wfm, self.shifts_x[0], self.shifts_y[0]),
