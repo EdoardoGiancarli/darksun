@@ -14,6 +14,7 @@ from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
+from bloodmoon.coords import angle2shift
 from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
@@ -56,7 +57,7 @@ def run_IROS(
         - fluence and respective error, in [ph]
         - extracted significance
 
-    *The shifts errors are assumed to be the half-bin size of the binning grid.
+    *The shifts errors are assumed to be 1 arcmin along x and 60 arcmin along y.
     
     Args:
         camera (CodedMaskCamera):
@@ -85,8 +86,10 @@ def run_IROS(
             - residuals (tuple[NDArray, NDArray]): Sky residuals for the WFM after IROS.
     """
     # shifts errors along x and y in [mm]
-    dsx = 0.5 * abs(camera.bins_sky.x[0] - camera.bins_sky.x[1])
-    dsy = 0.5 * abs(camera.bins_sky.y[0] - camera.bins_sky.y[1])
+    err_x = 1                               # [arcmin]
+    err_y = 60                              # [arcmin]
+    dsx = angle2shift(camera, err_x / 60)
+    dsy = angle2shift(camera, err_y / 60)
 
     def callback(output: tuple[float]) -> tuple[float]:
         """Manage IROS candidate output parameters."""
@@ -347,7 +350,7 @@ def catalogue_comparison(
         dra: float,
         dec: float,
         ddec: float,
-        sigma: int | float = 1,
+        sigma: int | float = 3,
     ) -> tuple[str, float]:
         """Candidate association from catalogue."""
 
