@@ -18,13 +18,13 @@ from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
 from bloodmoon.optim import apply_vignetting
-from bloodmoon.optim import iros
 
 from .types import LogEntry
 from .data import DataLoader
 from .data import CatalogueLoader
 from .data import Log
 from .data import create_log
+from .optim import iros
 
 __all__ = [
     "run_IROS", "compute_parameters",
@@ -359,13 +359,13 @@ def catalogue_comparison(
             return arg
     
         box = (
-            (catalogue.data['RA'] > ra - sigma * dra) &
-            (catalogue.data['RA'] < ra + sigma * dra) &
-            (catalogue.data['DEC'] > dec - sigma * ddec) &
-            (catalogue.data['DEC'] < dec + sigma * ddec) &
-            (catalogue.data['ID'] != KEYMAP['cxb_tag'])
+            (catalogue.DLdata['RA'] > ra - sigma * dra) &
+            (catalogue.DLdata['RA'] < ra + sigma * dra) &
+            (catalogue.DLdata['DEC'] > dec - sigma * ddec) &
+            (catalogue.DLdata['DEC'] < dec + sigma * ddec) &
+            (catalogue.DLdata['ID'] != KEYMAP['cxb_tag'])
         )
-        associated_batch = catalogue.data[box]
+        associated_batch = catalogue.DLdata[box]
 
         if not any(associated_batch):
             sourceID = f'lemx-s{KEYMAP['NEW_ID']}'
