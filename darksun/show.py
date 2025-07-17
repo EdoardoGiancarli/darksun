@@ -169,4 +169,13 @@ def sky_plot(
     raise NotImplementedError
 
 
+def skyfield_map(
+    *args, **kwargs,
+) -> None:
+    """
+    the one with the sources on the binning grid in placeholder (LCMs)
+    """
+    raise NotImplementedError
+
+
 # end
