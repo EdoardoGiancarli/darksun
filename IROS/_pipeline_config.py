@@ -2,9 +2,9 @@
 Configuration script for the IROS pipeline.
 """
 
-from _pipeline_support import PipelineParams
-from _pipeline_support import config_parameters
-from _pipeline_support import output_files
+from ._pipeline_support import PipelineParams
+from ._pipeline_support import config_parameters
+from ._pipeline_support import output_files
 
 from typing import Sequence
 from pathlib import Path
@@ -72,7 +72,7 @@ def run(params: PipelineParams) -> None:
             sdls = (sdlA, sdlB)
 
             with ds.timer("Compute dets/vars"):
-                detectors = tuple(count(wfm, sdl.data)[0] for sdl in sdls)
+                detectors = tuple(count(wfm, sdl.DLdata)[0] for sdl in sdls)
                 variances = tuple(variance(wfm, d) for d in detectors)
 
             # WCS fit (here the camera is upscaled with the final upscaling)

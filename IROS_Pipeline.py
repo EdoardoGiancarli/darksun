@@ -35,7 +35,7 @@ TODO:
     - WARNING: new-sources association must be updated to consider repeating same new-source
 """
 
-from _pipeline_config import run_pipeline
+from IROS._pipeline_config import run_pipeline
 from typing import Sequence
 from bloodmoon.types import CoordEquatorial
 
@@ -49,7 +49,7 @@ THIN_MASK: bool = False             # selects if infinitely opaque and thin mask
 
 #### --- OBSERVATION DATA
 #SKYFIELD: str = "GalacticCenter"                                                          # skyfield selection
-#DATA_FITS: str = "20250430_galctr_rxte_sax_2-50keV_1ks_realmask_infdet_sources_cxb"       # directory with FITS files from WFM
+#DATA_FITS: str = ""       # directory with FITS files from WFM
 
 SKYFIELD: str = "IROSDummy"
 DATA_FITS: str = "catalog_withCXB_1Crab_infdet_2-50keV_1ks"
@@ -66,7 +66,7 @@ UPSX_FINAL: int = 5                 # final upscaling for skies and visualisatio
 UPSY_FINAL: int = 1
 
 #### --- ANALYSIS ID
-ANALYSIS_ID: str = "testing_pipeline"
+ANALYSIS_ID: str = "test_association"
 
 #### --- IROS SETUP
 MAX_ITERATIONS: int = 9
