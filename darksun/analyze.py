@@ -91,17 +91,11 @@ def run_IROS(
     dsx = angle2shift(camera, err_x / 60)
     dsy = angle2shift(camera, err_y / 60)
 
-    def callback(output: tuple[float], camID: str) -> tuple[float]:
+    def callback(output: tuple[float]) -> tuple[float]:
         """Manage IROS candidate output parameters."""
         sx, sy, f, signf = output
         df = np.sqrt(f)
-        if camID.upper() == 'CAM1A':
-            errx, erry = dsx, dsy
-        elif camID.upper() == 'CAM1B':
-            errx, erry = dsy, dsx
-        else:
-            raise ValueError("Camera not identified.")
-        return sx, errx, sy, erry, f, df, signf
+        return sx, dsx, sy, dsy, f, df, signf
         
     # generate IROS output log
     params = (
@@ -129,10 +123,10 @@ def run_IROS(
         parA, parB = candidates
 
         log_camA.update(
-            tuple((p.entry, val) for p, val in zip(params, callback(parA, 'cam1a')))
+            tuple((p.entry, val) for p, val in zip(params, callback(parA)))
         )
         log_camB.update(
-            tuple((p.entry, val) for p, val in zip(params, callback(parB, 'cam1b')))
+            tuple((p.entry, val) for p, val in zip(params, callback(parB)))
         )
     
     return (log_camA, log_camB), residuals
