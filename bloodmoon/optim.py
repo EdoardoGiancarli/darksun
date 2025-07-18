@@ -556,6 +556,13 @@ def optimize(
     
     sx_start, sy_start = interpmax(camera, arg_sky, sky)
     fluence_start = sky[*arg_sky]
+    from .images import argmax
+    print(
+        f"\nFLUENCE START: {fluence_start}\n"
+        f"SHIFTS START: {sx_start, sy_start}\n"
+        f"{arg_sky=}\n"
+        f"{argmax(sky)=}, fluence max: {sky.max()}\n"
+    )
     loss = _Loss(model_shift_flux)
     results = minimize(
         lambda args: loss((args[0], args[1], args[2]), sky, arg_sky, camera),
@@ -578,6 +585,13 @@ def optimize(
     )
     # store the final optimized positions and fluence.
     sx, sy, fluence = map(float, results.x[:3])
+    print(
+        f"FINAL OPTIMIZED FLUENCE: {fluence}\n"
+        f"FLUENCE GAIN: {(fluence - fluence_start) * 100 / fluence_start:.3f}%\n"
+        f"FINAL OPTIMIZED SHIFTS: {sx, sy}\n"
+        f"SHIFTX GAIN: {(sx - sx_start) * 100 / sx_start:.3f}%\n"
+        f"SHIFTY GAIN: {(sy - sy_start) * 100 / sy_start:.3f}%\n"
+    )
     # releases model cache memory.
     model_shift_flux_clear()
     return sx, sy, fluence
