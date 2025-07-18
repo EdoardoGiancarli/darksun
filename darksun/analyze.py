@@ -85,11 +85,28 @@ def run_IROS(
             - logs (tuple[Log, Log]): WFM databases with metadata and results from IROS.
             - residuals (tuple[NDArray, NDArray]): Sky residuals for the WFM after IROS.
     """
-    # shifts errors along x and y in [mm]
+    #def callback(output: tuple[float]) -> tuple[float]:
+    #    """Manage IROS candidate output parameters."""
+    #    err_x, err_y = 1, 60                                # [arcmin]
+    #
+    #    def shift_err(shift: float, eps: float) -> float:
+    #        """Computes shift error."""
+    #        l = camera.specs['mask_detector_distance']      # [mm]
+    #        theta = np.deg2rad(shift2angle(camera, shift))  # [rad]
+    #        dtheta = np.deg2rad(eps / 60)                   # [rad]
+    #        return angle2shift(camera, eps / 60) #l / np.square(np.cos(theta)) * dtheta
+    #    
+    #    sx, sy, f, signf = output
+    #    dsx, dsy = map(shift_err, (sx, err_x), (sy, err_y))
+    #    df = np.sqrt(f)
+    #    return sx, dsx, sy, dsy, f, df, signf
+
+
+    # shifts errors along x and y
     err_x = 1                               # [arcmin]
     err_y = 60                              # [arcmin]
-    dsx = angle2shift(camera, err_x / 60)
-    dsy = angle2shift(camera, err_y / 60)
+    dsx = angle2shift(camera, err_x / 60)   # [mm]
+    dsy = angle2shift(camera, err_y / 60)   # [mm]
 
     def callback(output: tuple[float]) -> tuple[float]:
         """Manage IROS candidate output parameters."""
@@ -277,6 +294,10 @@ def compute_parameters(
     log.add_entry_values('dec', list(decs))
     log.add_entry_values('dra', list(dras))
     log.add_entry_values('ddec', list(ddecs))
+    for dra, ddec in zip(dras, ddecs):
+        print(
+            f"Errorbox(RA, DEC): {2 * dra * 60} x {2 * ddec * 60} arcmin2"
+        )
 
     rates = [f / exposure for f in fluences]
     drates = [df / exposure for df in dfluences]
@@ -371,7 +392,7 @@ def catalogue_comparison(
         associated_batch = catalogue.DLdata[box]
 
         if not any(associated_batch):
-            sourceID = f'lemx-s{KEYMAP['NEW_ID']}'
+            sourceID = f'lemx-{log.name.lower()}S{KEYMAP['NEW_ID']}'
             flux = -1.0
             KEYMAP['NEW_ID'] += 1
         elif len(associated_batch) == 1:
