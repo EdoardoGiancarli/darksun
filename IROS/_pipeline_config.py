@@ -181,7 +181,7 @@ def run(params: PipelineParams) -> None:
             log_camB = ds.compute_parameters(
                 log=log_camB,
                 camera=wfm,
-                sdl=sdlA,
+                sdl=sdlB,
                 vignetting=params.vignetting,
                 psfy=params.psfy,
             )
