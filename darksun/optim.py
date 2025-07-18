@@ -28,8 +28,8 @@ def verify_camera_orientation(
     """
     Verifies cameras are oriented orthogonally (90° rotation in azimuth).
     This is required for the source position matching algorithm in IROS.
-    Then, sorts the data loaders into a tuple so that the second's data loader
-    x axis is at +90° from the first one.
+    Then, sorts the data loaders into a tuple so that the second's data
+    loader x axis is at +90° from the first one.
     """
     delta_rot_x = angular_separation(
         *map(np.deg2rad, (*sdl_camA.rotations["x"], *sdl_camB.rotations["x"]))
