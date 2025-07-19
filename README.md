@@ -12,6 +12,7 @@ A bloodmoon package for handling IROS-related analyses with the WFM coded mask i
 
 > ⚠️ **Note**\
 >The `bloodmoon` source files are present within the package for development sakes, they will be later removed.
+> The `IROS` package with the configuration modules for the pipeline are also present (temporary).
 
 ## Installation
 
@@ -47,10 +48,10 @@ conda activate darksun
 ## Quick Start
 
 ```python
-...
+coming soon...
 ```
 
-For more, take a look at the `darksun` [demo](demo/demo.ipynb) (still in progress...).
+For more, take a look at the `darksun` [demo](demo/demo.ipynb) (coming soon...).
 
 
 ## Development
