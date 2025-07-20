@@ -66,7 +66,7 @@ UPSX_FINAL: int = 5                 # final upscaling for skies and visualisatio
 UPSY_FINAL: int = 1
 
 #### --- ANALYSIS ID
-ANALYSIS_ID: str = "test_cands_peaks"
+ANALYSIS_ID: str = "test_need_optimizer"
 
 #### --- IROS SETUP
 MAX_ITERATIONS: int = 9

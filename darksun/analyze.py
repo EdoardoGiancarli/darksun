@@ -288,10 +288,10 @@ def compute_parameters(
     log.add_entry_values('dec', list(decs))
     log.add_entry_values('dra', list(dras))
     log.add_entry_values('ddec', list(ddecs))
-    for tx, ty, ra, dec in zip(dthetas_x, dthetas_y, dras, ddecs):
+    for dtx, dty, dra, ddec in zip(dthetas_x, dthetas_y, dras, ddecs):
         print(
-            f"Errorbox(thetax, thetay): {2 * tx * 60} x {2 * ty * 60} arcmin2\n"
-            f"Errorbox(RA, DEC): {2 * ra * 60} x {2 * dec * 60} arcmin2\n"
+            f"Errorbox(thetax, thetay): {2 * dtx * 60} x {2 * dty * 60} arcmin2\n"
+            f"Errorbox(RA, DEC): {2 * dra * 60} x {2 * ddec * 60} arcmin2\n"
         )
 
     rates = [f / EXPOSURE for f in fluences]

@@ -554,7 +554,8 @@ def optimize(
     else:
         raise ValueError("Model value not supported. The `model` arguments should be `fast` or `accurate`.")
     
-    from .images import argmax
+
+
     _placeholder = {'peak': (0, 0)}   # TODO: temporary, to remove
     def init_candidate_args(
         pos: tuple[int, int],
@@ -562,6 +563,8 @@ def optimize(
     ) -> tuple[float, float, float]:
         """
         """
+        from .images import argmax
+
         box = 5
         y, x = pos
         _peak = argmax(
@@ -575,6 +578,8 @@ def optimize(
         sx_start, sy_start = interpmax(camera, peak, sky)
         fluence_start = sky[*peak]
         return sx_start, sy_start, fluence_start
+    
+
     
     #sx_start, sy_start = interpmax(camera, arg_sky, sky)
     #fluence_start = sky[*arg_sky]
