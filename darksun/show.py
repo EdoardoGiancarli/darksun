@@ -7,8 +7,12 @@ from typing import Any, Sequence
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib as mpl
+import matplotlib.patches as patches
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
+
+from bloodmoon.mask import CodedMaskCamera
+from darksun.data import Log
 
 __all__ = []
 
@@ -38,6 +42,14 @@ PLOTPARAMS = {
     'ticks_len_major': 7,
     'ticks_len_minor': 4,
     'ticks_scilim': (-3, 4),
+    # colorbar
+    'cbar_origin': 'lower',
+    'cbar_shrink': 0.75,
+    'cbar_pad': 0.05,
+    'cbar_ticks_ls': 11,
+    'cbar_label_fs': 12,
+    'cbar_label_fw': 'bold',
+    'cbar_scilim': (-3, 3),
     # text
     'txt_body_fs': 6,
     'txt_title_fs': 12,
@@ -108,7 +120,7 @@ def distr_plot(
     Array can be N-dim, it will be flattened for the plot.
 
     Args:
-        arr (np.array):
+        arr (NDArray):
             Input array, could be N-dim.
         title (str):
             Plot title.
@@ -142,16 +154,43 @@ def distr_plot(
     plt.show()
 
 
-def enhance_slices(
-    *args, **kwargs,
+def image_plot(
+    arr: NDArray,
+    title: str = None,
+    xlabel: str = None,
+    ylabel: str = None,
+    cbarlabel: str = None,
+    cbarloc: str = 'right',
+    **kwargs: Any,
 ) -> None:
     """
-    
+    Displays a 2D array as an image.
+
+    Args:
+        arr (NDArray): 2D array to display.
+        title (str, optional (default=`None`)): Title for the plot.
+        xlabel (str, optional (default=`None`)): Label for the x-axis.
+        ylabel (str, optional (default=`None`)): Label for the y-axis.
+        cbarlabel (str, optional (default=`None`)): Label for the colorbar.
+        cbarloc (str, optional (default=`'right'`)): Location of the colorbar.
+        **kwargs (Any): Additional keyword arguments passed to `matplotlib.pyplot.imshow`.
     """
-    raise NotImplementedError
+    fig, ax = _config_subplots(1)
+    _config_labels(ax, xlabel, ylabel, title)
+    _config_ticks(ax)
+    img = ax.imshow(arr, origin=PLOTPARAMS['cbar_origin'], **kwargs)
+    cbar = fig.colorbar(
+        img, ax=ax, location=cbarloc, shrink=PLOTPARAMS['cbar_shrink'], pad=PLOTPARAMS['cbar_pad'],
+    )
+    cbar.ax.tick_params(labelsize=PLOTPARAMS['cbar_ticks_ls'])
+    cbar.formatter.set_powerlimits(PLOTPARAMS['cbar_scilim'])
+    if cbarlabel: cbar.set_label(
+        cbarlabel, fontsize=PLOTPARAMS['cbar_label_fs'], fontweight=PLOTPARAMS['cbar_label_fw'],
+    )
+    plt.show()
 
 
-def image_plot(
+def slices_plot(
     *args, **kwargs,
 ) -> None:
     """
@@ -170,12 +209,88 @@ def sky_plot(
 
 
 def skyfield_map(
-    *args, **kwargs,
+    log: Log,
+    camera: CodedMaskCamera,
+    show_IDs: bool = True,
+    show_coords: bool = True,
 ) -> None:
     """
-    the one with the sources on the binning grid in placeholder (LCMs)
+    Displays the reconstructed sources in the sky-grid, optionally
+    specifying the IDs and the RA/Dec coordinates.
+
+    Args:
+        log (Log):
+            Reconstructed sources database.
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance with binning info.
+        show_IDs (bool, optional (default=`True`)):
+            If `True`, the source IDs are shown in the plot.
+        show_coords (bool, optional (default=`True`)):
+            If `True`, the RA/Dec coords are shown in the plot.
     """
-    raise NotImplementedError
+    skyx, skyy = camera.bins_sky
+    SETUP = {
+        'x': 'shift_x',
+        'y': 'shift_y',
+        'xlabel': 'x bins [mm]',
+        'ylabel': 'y bins [mm]',
+        'title': f'{log.name} SkyMap-Grid',
+
+        'ancor': (skyx[0], skyy[0]),
+        'width': skyx[-1] - skyx[0],
+        'height': skyy[-1] - skyy[0],
+        'color': 'k',
+        'txt_color': 'white',
+
+        'xline': ((skyx[0], skyx[-1]), (0, 0)),
+        'yline': ((0, 0), (skyy[0], skyy[-1])),
+
+        'xlim': (skyx[0], skyx[-1]),
+        'ylim': (skyy[0], skyy[-1]),
+    }
+
+    fig, ax = _config_subplots(1)
+    _config_labels(ax, SETUP['xlabel'], SETUP['ylabel'], SETUP['title'])
+    _config_ticks(ax)
+    ax.set_xlim(SETUP['xlim'])
+    ax.set_ylim(SETUP['ylim'])
+
+    # plot bkg and axis lines
+    ax.add_patch(
+        patches.Rectangle(
+            xy=SETUP['ancor'], width=SETUP['width'], height=SETUP['height'],
+            linewidth=0.1, edgecolor='k', facecolor=SETUP['color'],
+        )
+    )
+    for line in ('xline', 'yline'):
+        ax.plot(*SETUP[line], color='OrangeRed', linestyle='-', linewidth=0.6, alpha=0.25)
+    
+    # plot sources on grid
+    ax.scatter(
+        log.log[SETUP['x']], log.log[SETUP['y']], color='LawnGreen',
+        marker='+', alpha=PLOTPARAMS['alpha'], s=15, label='sources',
+    )
+    if any((show_IDs, show_coords)):
+        for name, shiftx, shifty, ra, dec in zip(
+            log.log['ID'],
+            log.log[SETUP['x']],
+            log.log[SETUP['y']],
+            log.log['ra'],
+            log.log['dec'],
+        ):
+            if show_coords:
+                ax.text(
+                    shiftx - 18, shifty + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
+                    fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                )
+            if show_IDs:
+                ax.text(
+                    shiftx - 5, shifty - 5, name, color=SETUP['txt_color'],
+                    fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                )
+
+    ax.legend(loc='best')
+    plt.show()
 
 
 # end
