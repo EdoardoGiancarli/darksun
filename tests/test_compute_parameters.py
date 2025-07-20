@@ -2,6 +2,7 @@
 Tests for IROS candidates parameters computing.
 """
 
+from copy import deepcopy
 import unittest
 from unittest import TestCase
 
@@ -25,33 +26,25 @@ class TestComputeParameters(TestCase):
         self.sdl.header['EXPOSURE'] = 1e1
 
         self.shifts_x = [0.0] * 2
-        self.dshifts_x = [0.125] * 2
         self.shifts_y = [0.0] * 2
-        self.dshifts_y = [0.2] * 2
         self.fluences = [1e2] * 2
-        self.dfluences = [1e1] * 2
         self.snrs = [10.] * 2
 
         self.iros_log = create_log(
             params=(
-                LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
-                LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
-                LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
-                LogEntry('snr', 'D', ''),
+                LogEntry('shift_x', 'D', 'mm'), LogEntry('shift_y', 'D', 'mm'),
+                LogEntry('fluence', 'D', 'ph'), LogEntry('snr', 'D', ''),
             )
         )
         self.iros_log.add_entry_values('shift_x', self.shifts_x)
-        self.iros_log.add_entry_values('dshift_x', self.dshifts_x)
         self.iros_log.add_entry_values('shift_y', self.shifts_y)
-        self.iros_log.add_entry_values('dshift_y', self.dshifts_y)
         self.iros_log.add_entry_values('fluence', self.fluences)
-        self.iros_log.add_entry_values('dfluence', self.dfluences)
         self.iros_log.add_entry_values('snr', self.snrs)
 
     def test_computing(self):
         """Tests if parameters are correctly computed."""
         log = compute_parameters(
-            log=self.iros_log,
+            log=deepcopy(self.iros_log),
             camera=self.wfm,
             sdl=self.sdl,
         )
@@ -69,6 +62,32 @@ class TestComputeParameters(TestCase):
             (log.log['ra'][0], log.log['dec'][0])
         )
         self.assertEqual(self.fluences[0] / 10, log.log['rate'][0])
+    
+    def test_angular_sensitivity(self):
+        """Tests if cameras angular coords are correctly computed (in [deg])."""
+        log = compute_parameters(
+            log=deepcopy(self.iros_log),
+            camera=self.wfm,
+            sdl=self.sdl,
+        )
+
+        upx, upy = self.wfm.upscale_f
+        self.assertEqual(
+            (5 / upx / 60, 60 / upy / 60),
+            (log.log['dangle_x'][0], log.log['dangle_y'][0])
+        )
+
+        upx, upy = (7, 3)
+        wfm2 = codedmask(_path_test_mask, upx, upy)
+        log = compute_parameters(
+            log=deepcopy(self.iros_log),
+            camera=wfm2,
+            sdl=self.sdl,
+        )
+        self.assertEqual(
+            (5 / upx / 60, 60 / upy / 60),
+            (log.log['dangle_x'][0], log.log['dangle_y'][0])
+        )
 
 
 

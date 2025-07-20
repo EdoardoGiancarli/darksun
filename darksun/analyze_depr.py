@@ -53,10 +53,11 @@ def run_IROS(
     At each iteration, two logs for the coded-mask cameras of the Wide Field Monitor
     are updated with the following candidates estimated parameters:
 
-        - camera local frame sky-coordinates shifts along the (x, y)
-          axes wrt the coded-mask camera optical axis, in [mm]
-        - fluence, in [ph]
-        - significance at the selection
+        - shifts along the (x, y) axes with respective errors* in [mm]
+        - fluence and respective error, in [ph]
+        - extracted significance
+
+    *The shifts errors are assumed to be 1 arcmin along x and 60 arcmin along y.
     
     Args:
         camera (CodedMaskCamera):
@@ -81,15 +82,44 @@ def run_IROS(
 
     Returns:
         output (tuple[tuple[Log, Log], tuple[NDArray, NDArray]]):
-            - logs (tuple[Log, Log]):
-                Camera `A` and `B` logs with metadata and results from IROS.
-            - residuals (tuple[NDArray, NDArray]):
-                Sky residuals for the WFM after IROS.
+            - logs (tuple[Log, Log]): WFM databases with metadata and results from IROS.
+            - residuals (tuple[NDArray, NDArray]): Sky residuals for the WFM after IROS.
     """
+    #def callback(output: tuple[float]) -> tuple[float]:
+    #    """Manage IROS candidate output parameters."""
+    #    err_x, err_y = 1, 60                                # [arcmin]
+    #
+    #    def shift_err(shift: float, eps: float) -> float:
+    #        """Computes shift error."""
+    #        l = camera.specs['mask_detector_distance']      # [mm]
+    #        theta = np.deg2rad(shift2angle(camera, shift))  # [rad]
+    #        dtheta = np.deg2rad(eps / 60)                   # [rad]
+    #        return angle2shift(camera, eps / 60) #l / np.square(np.cos(theta)) * dtheta
+    #    
+    #    sx, sy, f, signf = output
+    #    dsx, dsy = map(shift_err, (sx, err_x), (sy, err_y))
+    #    df = np.sqrt(f)
+    #    return sx, dsx, sy, dsy, f, df, signf
+
+
+    # shifts errors along x and y
+    err_x = 1                               # [arcmin]
+    err_y = 60                              # [arcmin]
+    dsx = angle2shift(camera, err_x / 60)   # [mm]
+    dsy = angle2shift(camera, err_y / 60)   # [mm]
+
+    def callback(output: tuple[float]) -> tuple[float]:
+        """Manage IROS candidate output parameters."""
+        sx, sy, f, signf = output
+        df = np.sqrt(f)
+        return sx, dsx, sy, dsy, f, df, signf
+        
     # generate IROS output log
     params = (
-        LogEntry('shift_x', 'D', 'mm'), LogEntry('shift_y', 'D', 'mm'),
-        LogEntry('fluence', 'D', 'ph'), LogEntry('snr', 'D', ''),
+        LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
+        LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
+        LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
+        LogEntry('snr', 'D', ''),
     )
     log_camA = create_log(params, id_camA)
     log_camB = create_log(params, id_camB)
@@ -108,11 +138,12 @@ def run_IROS(
     print("# Looping around the FOV...")
     for candidates, residuals in tqdm(loop):
         parA, parB = candidates
+
         log_camA.update(
-            tuple((p.entry, val) for p, val in zip(params, parA))
+            tuple((p.entry, val) for p, val in zip(params, callback(parA)))
         )
         log_camB.update(
-            tuple((p.entry, val) for p, val in zip(params, parB))
+            tuple((p.entry, val) for p, val in zip(params, callback(parB)))
         )
     
     return (log_camA, log_camB), residuals
@@ -127,17 +158,13 @@ def compute_parameters(
 ) -> Log:
     """
     Computes parameters for IROS reconstructed candidates.
-    The input WFM camera Log is updated with the following parameters:
+    The input Log is updated with the following parameters:
 
-        - candidates output parameters errors (local frame (x, y) sky-shifts
-          coords [mm] and fluence [ph])
         - candidates image pixel indexes
         - WFM camera local frame (x, y) angular coordinates and errors, in [deg]
         - candidate equatorial coordinates (RA, Dec) and errors, in [deg]
         - candidate photons rate and error, in [ph/s]
         - candidate photons flux and error, in [ph/cm2/s]
-    
-    The coords errors are assumed to be 1 arcmin along x and 60 arcmin along y.
 
     Args:
         log (Log):
@@ -163,32 +190,8 @@ def compute_parameters(
     )
     exposure = sdl.header["EXPOSURE"]
 
-    #def callback(output: tuple[float]) -> tuple[float]:
-    #    """Manage IROS candidate output parameters."""
-    #    err_x, err_y = 1, 60                                # [arcmin]
-    #
-    #    def shift_err(shift: float, eps: float) -> float:
-    #        """Computes shift error."""
-    #        l = camera.specs['mask_detector_distance']      # [mm]
-    #        theta = np.deg2rad(shift2angle(camera, shift))  # [rad]
-    #        dtheta = np.deg2rad(eps / 60)                   # [rad]
-    #        return angle2shift(camera, eps / 60) #l / np.square(np.cos(theta)) * dtheta
-    #    
-    #    sx, sy, f, signf = output
-    #    dsx, dsy = map(shift_err, (sx, err_x), (sy, err_y))
-    #    df = np.sqrt(f)
-    #    return sx, dsx, sy, dsy, f, df, signf
-
-
-    # shifts errors along x and y
-    err_x = 1                               # [arcmin]
-    err_y = 60                              # [arcmin]
-    dsx = angle2shift(camera, err_x / 60)   # [mm]
-    dsy = angle2shift(camera, err_y / 60)   # [mm]
-
     # insert new entries
     params = (
-        LogEntry('dshift_x', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'), LogEntry('fluence', 'D', 'ph'),
         LogEntry('y', 'J', 'px'), LogEntry('x', 'J', 'px'),
         LogEntry('angle_x', 'D', 'deg'), LogEntry('dangle_x', 'D', 'deg'),
         LogEntry('angle_y', 'D', 'deg'), LogEntry('dangle_y', 'D', 'deg'),
@@ -291,10 +294,9 @@ def compute_parameters(
     log.add_entry_values('dec', list(decs))
     log.add_entry_values('dra', list(dras))
     log.add_entry_values('ddec', list(ddecs))
-    for tx, ty, ra, dec in zip(dthetas_x, dthetas_y, dras, ddecs):
+    for dra, ddec in zip(dras, ddecs):
         print(
-            f"Errorbox(thetax, thetay): {2 * tx * 60} x {2 * ty * 60} arcmin2\n"
-            f"Errorbox(RA, DEC): {2 * ra * 60} x {2 * dec * 60} arcmin2\n"
+            f"Errorbox(RA, DEC): {2 * dra * 60} x {2 * ddec * 60} arcmin2"
         )
 
     rates = [f / exposure for f in fluences]
