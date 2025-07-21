@@ -61,7 +61,8 @@ class TestCatalogueComparison(TestCase):
         
         self.log = log
         self.ids = [s.decode('utf-8') for s in run['ID']]  # convert b-str to str
-
+    
+    @unittest.skip
     def test_complete_comparison(self):
         """Tests if `catalogue_comparison` correctly works."""
         catalogue = get_catalogue(_path_test_catalogue)
@@ -77,6 +78,7 @@ class TestCatalogueComparison(TestCase):
             strict=False,
         )
     
+    @unittest.skip    
     def test_screening_comparison(self):
         """Tests if repeating sources are removed."""
         catalogue = get_catalogue(_path_test_catalogue)

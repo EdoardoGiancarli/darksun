@@ -12,9 +12,9 @@ from tqdm import tqdm
 from bloodmoon.mask import _detector_footprint
 from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.coords import shift2equatorial
+from bloodmoon.coords import equatorial2shift
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
-from bloodmoon.coords import angle2shift
 from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
@@ -194,26 +194,32 @@ def compute_parameters(
     
     def shift_error(shift: float, dtheta: float) -> float:
         """Computes shift error."""
-        l = camera.specs['mask_detector_distance']      # [mm]
-        theta = np.deg2rad(shift2angle(camera, shift))  # [rad]
-        dtheta = np.deg2rad(arcmin2deg(dtheta))         # [rad]
-        return l / np.square(np.cos(theta)) * dtheta    # angle2shift(camera, arcmin2deg(eps))
+        l = camera.specs['mask_detector_distance']  # [mm]
+        t = np.deg2rad(shift2angle(camera, shift))  # [rad]
+        dt = np.deg2rad(arcmin2deg(dtheta))         # [rad]
+        return l / np.square(np.cos(t)) * dt        # angle2shift(camera, arcmin2deg(dtheta))
     
-    def eq_coords_errors(
-        shiftx: float, dshiftx: float,
-        shifty: float, dshifty: float,
-    ) -> tuple[float, float]:
-        """Computes RA/DEC source errors."""
-        r_ra, up_dec = shift2equatorial(
-            sdl, camera, shiftx + dshiftx, shifty + dshifty
-        )
-        l_ra, down_dec = shift2equatorial(
-            sdl, camera, shiftx - dshiftx, shifty - dshifty
-        )
-        return (
-            abs(l_ra - r_ra) / 4,
-            abs(up_dec - down_dec) / 4,
-        )
+    #def eq_coords_errors(
+    #    shiftx: float, dshiftx: float,
+    #    shifty: float, dshifty: float,
+    #) -> tuple[float, float]:
+    #    """Computes RA/DEC source errors."""
+    #    up_ra, up_dec = shift2equatorial(
+    #        sdl, camera, shiftx, shifty + dshifty
+    #    )
+    #    down_ra, down_dec = shift2equatorial(
+    #        sdl, camera, shiftx, shifty - dshifty
+    #    )
+    #    left_ra, left_dec = shift2equatorial(
+    #        sdl, camera, shiftx - dshiftx, shifty
+    #    )
+    #    right_ra, right_dec = shift2equatorial(
+    #        sdl, camera, shiftx + dshiftx, shifty
+    #    )
+    #    return (
+    #        abs(l_ra - r_ra) / 4,
+    #        abs(up_dec - down_dec) / 4,
+    #    )
     
     def effective_area(shiftx: float, shifty: float) -> float:
         """Computes detector area seen by the source."""
@@ -277,22 +283,17 @@ def compute_parameters(
     ras, decs = zip(
         *tuple(shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
-    dras, ddecs = zip(
-        *tuple(
-            eq_coords_errors(sx, dsx, sy, dsy) for sx, dsx, sy, dsy in zip(
-                shifts_x, dshifts_x, shifts_y, dshifts_y,
-            )
-        )
-    )
+    #dras, ddecs = zip(
+    #    *tuple(
+    #        eq_coords_errors(sx, dsx, sy, dsy) for sx, dsx, sy, dsy in zip(
+    #            shifts_x, dshifts_x, shifts_y, dshifts_y,
+    #        )
+    #    )
+    #)
     log.add_entry_values('ra', list(ras))
     log.add_entry_values('dec', list(decs))
-    log.add_entry_values('dra', list(dras))
-    log.add_entry_values('ddec', list(ddecs))
-    for dtx, dty, dra, ddec in zip(dthetas_x, dthetas_y, dras, ddecs):
-        print(
-            f"Errorbox(thetax, thetay): {2 * dtx * 60} x {2 * dty * 60} arcmin2\n"
-            f"Errorbox(RA, DEC): {2 * dra * 60} x {2 * ddec * 60} arcmin2\n"
-        )
+    #log.add_entry_values('dra', list(dras))
+    #log.add_entry_values('ddec', list(ddecs))
 
     rates = [f / EXPOSURE for f in fluences]
     drates = [df / EXPOSURE for df in dfluences]
@@ -329,6 +330,8 @@ def data_screening(
 def catalogue_comparison(
     log: Log,
     catalogue: CatalogueLoader,
+    sdl: DataLoader,
+    camera: CodedMaskCamera,
     screening: bool = True,
 ) -> Log:
     """
@@ -340,6 +343,10 @@ def catalogue_comparison(
             IROS data output from `compute_parameters()`.
         catalogue (CatalogueLoader):
             Catalogue data for the WFM coded-mask camera.
+        sdl (DataLoader):
+            Data container instance for chosen WFM coded-mask camera.
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance used for imaging and reconstruction.
         screening (bool, optional (default=`True`)):
             If `True`, the repeating sources in the database
             are screened by significance comparison.
@@ -349,11 +356,29 @@ def catalogue_comparison(
             Log with the updated entries for the input IROS candidates,
             featuring sources IDs and catalogues calibrated fluxes.
     """
+    def extend_catalogue(rec: FITS_rec) -> FITS_rec:
+        """Adds sources local frame angular coords to catalogue."""
+        from astropy.io.fits import Column, BinTableHDU
+        shifts_x, shifts_y = zip(
+            *tuple(
+                equatorial2shift(sdl, camera, ra, dec) for ra, dec in zip(rec['RA'], rec['DEC'])
+            )
+        )
+        ts_x, ts_y = map(
+            lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
+            (shifts_x, shifts_y),
+        )
+        thetas_x = Column(name='ANGLE_X', format='D', array=np.array(ts_x))
+        thetas_y = Column(name='ANGLE_Y', format='D', array=np.array(ts_y))
+        extended = list(rec.columns) + [thetas_x, thetas_y]
+        return BinTableHDU.from_columns(extended).data
+    
     # set up
     KEYMAP = {
         'cxb_tag': 'gctr_diffuse',
         'NEW_ID': 1,
     }
+    database = extend_catalogue(catalogue.DLdata)
 
     # update Log
     params = (
@@ -361,30 +386,30 @@ def catalogue_comparison(
     )
     log.insert(params)
 
-    def candidate_identification(
-        ra: float,
-        dra: float,
-        dec: float,
-        ddec: float,
+    def candidate_association(
+        thetax: float,
+        dthetax: float,
+        thetay: float,
+        dthetay: float,
         sigma: int | float = 3,
     ) -> tuple[str, float]:
         """Candidate association from catalogue."""
 
         def closer_source(batch: FITS_rec) -> int:
-            """Returns closer catalogue source index."""
+            """Returns candidate's closer catalogue source index."""
             arg = np.argmin(
-                np.square(batch["RA"] - ra) + np.square(batch["DEC"] - dec)
+                np.square(batch['ANGLE_X'] - thetax) + np.square(batch['ANGLE_Y'] - thetay)
             )
             return arg
     
         box = (
-            (catalogue.DLdata['RA'] > ra - sigma * dra) &
-            (catalogue.DLdata['RA'] < ra + sigma * dra) &
-            (catalogue.DLdata['DEC'] > dec - sigma * ddec) &
-            (catalogue.DLdata['DEC'] < dec + sigma * ddec) &
-            (catalogue.DLdata['ID'] != KEYMAP['cxb_tag'])
+            (database['ANGLE_X'] > thetax - sigma * dthetax) &
+            (database['ANGLE_X'] < thetax + sigma * dthetax) &
+            (database['ANGLE_Y'] > thetay - sigma * dthetay) &
+            (database['ANGLE_Y'] < thetay + sigma * dthetay) &
+            (database['ID'] != KEYMAP['cxb_tag'])
         )
-        associated_batch = catalogue.DLdata[box]
+        associated_batch = database[box]
 
         if not any(associated_batch):
             sourceID = f'lemx-{log.name.lower()}S{KEYMAP['NEW_ID']}'
@@ -402,11 +427,11 @@ def catalogue_comparison(
 
     print("# Comparing with Catalogue...")
     # initial sources association
-    for ra, dra, dec, ddec in zip(
-        log.log["ra"], log.log["dra"],
-        log.log["dec"], log.log["ddec"],
+    for tx, dtx, ty, dty in zip(
+        log.log["angle_x"], log.log["dangle_x"],
+        log.log["angle_y"], log.log["dangle_y"],
     ):
-        sourceID, flux = candidate_identification(ra, dra, dec, ddec)
+        sourceID, flux = candidate_association(tx, dtx, ty, dty)
         log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
     
     # sources screening based on significance

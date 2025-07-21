@@ -213,11 +213,15 @@ def run(params: PipelineParams) -> None:
             log_camA = ds.catalogue_comparison(
                 log=log_camA,
                 catalogue=catA,
+                sdl=sdlA,
+                camera=wfm,
                 screening=True,
             )
             log_camB = ds.catalogue_comparison(
                 log=log_camB,
                 catalogue=catB,
+                sdl=sdlB,
+                camera=wfm,
                 screening=True,
             )
             ds.save_database(
