@@ -395,10 +395,16 @@ def catalogue_comparison(
     ) -> tuple[str, float]:
         """Candidate association from catalogue."""
 
-        def closer_source(batch: FITS_rec) -> int:
+        def closest_source(batch: FITS_rec) -> int:
             """Returns candidate's closer catalogue source index."""
             arg = np.argmin(
-                np.square(batch['ANGLE_X'] - thetax) + np.square(batch['ANGLE_Y'] - thetay)
+                np.square(
+                    np.tan(np.deg2rad(batch['ANGLE_X'])) - np.tan(np.deg2rad(thetax))
+                )
+                +
+                np.square(
+                    np.tan(np.deg2rad(batch['ANGLE_Y'])) - np.tan(np.deg2rad(thetay))
+                )
             )
             return arg
     
@@ -419,7 +425,7 @@ def catalogue_comparison(
             sourceID = associated_batch['ID'][0]
             flux = associated_batch['FLUX'][0]
         else:
-            arg = closer_source(associated_batch)
+            arg = closest_source(associated_batch)
             sourceID = associated_batch['ID'][arg]
             flux = associated_batch['FLUX'][arg]
 
