@@ -169,7 +169,7 @@ def compute_parameters(
 
     # coded-mask sensitivity along the (x, y) axis
     # - TODO: insert correct camera sensitivity estimation (this is a proxy,
-    #         dthetax ~ 5 arcmin, dthetay ~ 60 arcmin at (upx, upy) = (1, 1))
+    #         dthetax = 5 arcmin, dthetay = 60 arcmin at (upx, upy) = (1, 1))
     DTHETA_X = 5.0 / UPX        # [arcmin]
     DTHETA_Y = 60.0 / UPY       # [arcmin]
 
@@ -180,8 +180,8 @@ def compute_parameters(
         LogEntry('y', 'J', 'px'), LogEntry('x', 'J', 'px'),
         LogEntry('angle_x', 'D', 'deg'), LogEntry('dangle_x', 'D', 'deg'),
         LogEntry('angle_y', 'D', 'deg'), LogEntry('dangle_y', 'D', 'deg'),
-        LogEntry('ra', 'D', 'deg'), LogEntry('dra', 'D', 'deg'),
-        LogEntry('dec', 'D', 'deg'), LogEntry('ddec', 'D', 'deg'),
+        LogEntry('ra', 'D', 'deg'), # LogEntry('dra', 'D', 'deg'),
+        LogEntry('dec', 'D', 'deg'), # LogEntry('ddec', 'D', 'deg'),
         LogEntry('rate', 'D', 'ph/s'), LogEntry('drate', 'D', 'ph/s'),
         LogEntry('flux', 'D', 'ph/cm2/s'), LogEntry('dflux', 'D', 'ph/cm2/s'),
     )
