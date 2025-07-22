@@ -6,7 +6,9 @@ from copy import deepcopy
 import unittest
 from unittest import TestCase
 
-from bloodmoon.coords import shift2equatorial, shift2pos, shift2angle
+import numpy as np
+
+from bloodmoon.coords import shift2equatorial, shift2pos, shift2angle, angle2shift
 from bloodmoon.mask import codedmask
 
 from darksun.types import LogEntry
@@ -28,17 +30,27 @@ class TestComputeParameters(TestCase):
         self.shifts_x = [0.0] * 2
         self.shifts_y = [0.0] * 2
         self.fluences = [1e2] * 2
+        self.dfluences = [1e1] * 2
         self.snrs = [10.] * 2
+
+        upx, upy = self.wfm.upscale_f
+        self.dshifts_x = [angle2shift(self.wfm, 5.0 / upx / 60)] * 2
+        self.dshifts_y = [angle2shift(self.wfm, 60.0 / upy / 60)] * 2
 
         self.iros_log = create_log(
             params=(
-                LogEntry('shift_x', 'D', 'mm'), LogEntry('shift_y', 'D', 'mm'),
-                LogEntry('fluence', 'D', 'ph'), LogEntry('snr', 'D', ''),
+                LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
+                LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
+                LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
+                LogEntry('snr', 'D', ''),
             )
         )
         self.iros_log.add_entry_values('shift_x', self.shifts_x)
+        self.iros_log.add_entry_values('dshift_x', self.dshifts_x)
         self.iros_log.add_entry_values('shift_y', self.shifts_y)
+        self.iros_log.add_entry_values('dshift_y', self.dshifts_y)
         self.iros_log.add_entry_values('fluence', self.fluences)
+        self.iros_log.add_entry_values('dfluence', self.dfluences)
         self.iros_log.add_entry_values('snr', self.snrs)
 
     def test_computing(self):
@@ -72,21 +84,10 @@ class TestComputeParameters(TestCase):
         )
 
         upx, upy = self.wfm.upscale_f
-        self.assertEqual(
-            (5 / upx / 60, 60 / upy / 60),
-            (log.log['dangle_x'][0], log.log['dangle_y'][0])
-        )
-
-        upx, upy = (7, 3)
-        wfm2 = codedmask(_path_test_mask, upx, upy)
-        log = compute_parameters(
-            log=deepcopy(self.iros_log),
-            camera=wfm2,
-            sdl=self.sdl,
-        )
-        self.assertEqual(
-            (5 / upx / 60, 60 / upy / 60),
-            (log.log['dangle_x'][0], log.log['dangle_y'][0])
+        np.testing.assert_almost_equal(
+            np.array((5 / upx / 60, 60 / upy / 60)),
+            np.array((log.log['dangle_x'][0], log.log['dangle_y'][0])),
+            decimal=5,
         )
 
 

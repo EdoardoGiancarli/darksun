@@ -22,39 +22,43 @@ class TestCatalogueComparison(TestCase):
     """Tests for the `catalogue_comparison` method in `analyze.py`."""
 
     def setUp(self):
-        dtx, dty = 1.0, 1.0
+        self.wfm = codedmask(_path_test_mask)
+        self.sdl = get_data(_path_test_SDL)
+
+        # sky-coords shifts errors in [mm]
+        dsx, dsy = 250.0, 25.0
         run = np.rec.array([
 
-            ('s1', 80.6, dtx, 34.0, dty, 5),         # associated directly
-            ('s2', 84.0, dtx, 28.0, dty, 5),
-            ('s3', 87.0, dtx, 23.0, dty, 5),
-            ('s4', 90.0, dtx, 31.0, dty, 5),
+            ('s1', 1347.0, dsx, 140.0, dsy, 5),     # associated directly
+            ('s2', 1750.0, dsx, 109.0, dsy, 5),
+            ('s3', 3388.0, dsx, 84.0, dsy, 5),
+            ('s4', 72781.0, dsx, 122.0, dsy, 5),
 
-            ('s6', -86.0, dtx, 21.2, dty, 5),        # associated through distance
+            ('s6', -2950.0, dsx, 80.0, dsy, 5),      # associated through distance
 
-            ('s9', -82.0, dtx, 18.9, dty, 5),        # associated through distance and removing 'gctr_diffuse'
+            ('s9', -1440.0, dsx, 75.0, dsy, 5),      # associated through distance and removing 'gctr_diffuse'
 
-            ('lemx-S1', 53.0, dtx, 68.0, dty, 5),    # associated with new sources
-            ('lemx-S2', 23.0, dtx, 14.0, dty, 5),
-            ('lemx-S3', 67.0, dtx, 35.0, dty, 5),
-            ('lemx-S4', 15.0, dtx, 9.0, dty, 5),
+            ('lemx-S1', -2110.0, dsx, -2180.0, dsy, 5),    # associated with new sources
+            ('lemx-S2', -2120.0, dsx, -2170.0, dsy, 5),
+            ('lemx-S3', -2130.0, dsx, -2160.0, dsy, 5),
+            ('lemx-S4', -2140.0, dsx, -2150.0, dsy, 5),
 
-            ('s2', 84.0, dtx, 28.0, dty, 3),         # repeating sources
-            ('s2', 84.0, dtx, 28.0, dty, 1),
-            ('s6', -86.0, dtx, 21.2, dty, 3),
-            ('s6', -86.0, dtx, 21.2, dty, 1),
-            ('s9', -82.0, dtx, 18.9, dty, 3),
-            ('s9', -82.0, dtx, 18.9, dty, 1),
-            ('lemx-S3', 67.0, dtx, 35.0, dty, 3),
-            ('lemx-S3', 67.0, dtx, 35.0, dty, 1),
+            ('s2', 1750.0, dsx, 109.0, dsy, 3),      # repeating sources
+            ('s2', 1750.0, dsx, 109.0, dsy, 1),
+            ('s6', -2950.0, dsx, 80.0, dsy, 3),
+            ('s6', -2950.0, dsx, 80.0, dsy, 1),
+            ('s9', -1440.0, dsx, 75.0, dsy, 3),
+            ('s9', -1440.0, dsx, 75.0, dsy, 1),
+            ('lemx-S3', -2130.0, dsx, -2160.0, dsy, 3),
+            ('lemx-S3', -2130.0, dsx, -2160.0, dsy, 1),
 
-        ], dtype=[('ID', 'S20'), ('ANGLE_X', 'f8'), ('DANGLE_X', 'f8'), ('ANGLE_Y', 'f8'), ('DANGLE_Y', 'f8'), ('SNR', 'f8')])
-
+        ], dtype=[('ID', 'S20'), ('SHIFT_X', 'f8'), ('DSHIFT_X', 'f8'), ('SHIFT_Y', 'f8'), ('DSHIFT_Y', 'f8'), ('SNR', 'f8')])
+            
         params = (
-            LogEntry('angle_x', 'D', 'deg'),
-            LogEntry('dangle_x', 'D', 'deg'),
-            LogEntry('angle_y', 'D', 'deg'),
-            LogEntry('dangle_y', 'D', 'deg'),
+            LogEntry('shift_x', 'D', 'deg'),
+            LogEntry('dshift_x', 'D', 'deg'),
+            LogEntry('shift_y', 'D', 'deg'),
+            LogEntry('dshift_y', 'D', 'deg'),
             LogEntry('snr', 'D', ''),
         )
 
@@ -65,9 +69,6 @@ class TestCatalogueComparison(TestCase):
         
         self.log = log
         self.ids = [s.decode('utf-8') for s in run['ID']]  # convert b-str to str
-
-        self.wfm = codedmask(_path_test_mask)
-        self.sdl = get_data(_path_test_SDL)
     
     def test_complete_comparison(self):
         """Tests if `catalogue_comparison` correctly works."""

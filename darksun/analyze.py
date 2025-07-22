@@ -15,6 +15,7 @@ from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import equatorial2shift
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
+from bloodmoon.coords import angle2shift
 from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
@@ -54,9 +55,14 @@ def run_IROS(
     are updated with the following candidates estimated parameters:
 
         - camera local frame sky-coordinates shifts along the (x, y)
-          axes wrt the coded-mask camera optical axis, in [mm]
-        - fluence, in [ph]
+          axes wrt the coded-mask camera optical axis, in [mm]*
+        - fluence, in [ph]**
         - significance at the selection
+    
+    * The candidates shifts errors at upscaling `(x, y)=(1, 1)` are assumed to be
+      `5 arcmin` along x and `60 arcmin` along y.
+    ** The candidates fluence is assumed to follow a Poissonian statistics, so the
+       fluence error is the square root of the fluence.
     
     Args:
         camera (CodedMaskCamera):
@@ -86,10 +92,28 @@ def run_IROS(
             - residuals (tuple[NDArray, NDArray]):
                 Sky residuals for the WFM after IROS.
     """
+    # coded-mask sensitivity along the (x, y) axis
+    # - TODO: insert correct camera sensitivity estimation (this is a proxy,
+    #         dthetax = 5 arcmin, dthetay = 60 arcmin at (upx, upy) = (1, 1))
+    UPX, UPY = camera.upscale_f
+    DTHETA_X = 5.0 / UPX / 60                  # [deg] PN: `/ 60` is for arcmin -> deg
+    DTHETA_Y = 60.0 / UPY / 60                 # [deg]
+    # errors for sky-coords shifts
+    DSX = abs(angle2shift(camera, DTHETA_X))   # [mm]
+    DSY = abs(angle2shift(camera, DTHETA_Y))   # [mm]
+
+    def callback(output: tuple[float]) -> tuple[float]:
+        """Manage IROS candidate output parameters."""
+        sx, sy, f, signf = output
+        df = np.sqrt(f)
+        return sx, DSX, sy, DSY, f, df, signf
+    
     # generate IROS output log
     params = (
-        LogEntry('shift_x', 'D', 'mm'), LogEntry('shift_y', 'D', 'mm'),
-        LogEntry('fluence', 'D', 'ph'), LogEntry('snr', 'D', ''),
+        LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
+        LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
+        LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
+        LogEntry('snr', 'D', ''),
     )
     log_camA = create_log(params, id_camA)
     log_camB = create_log(params, id_camB)
@@ -109,10 +133,10 @@ def run_IROS(
     for candidates, residuals in tqdm(loop):
         parA, parB = candidates
         log_camA.update(
-            tuple((p.entry, val) for p, val in zip(params, parA))
+            tuple((p.entry, val) for p, val in zip(params, callback(parA)))
         )
         log_camB.update(
-            tuple((p.entry, val) for p, val in zip(params, parB))
+            tuple((p.entry, val) for p, val in zip(params, callback(parB)))
         )
     
     return (log_camA, log_camB), residuals
@@ -129,15 +153,11 @@ def compute_parameters(
     Computes parameters for IROS reconstructed candidates.
     The input WFM camera Log is updated with the following parameters:
 
-        - candidates output parameters errors (local frame (x, y) sky-shifts
-          coords [mm] and fluence [ph])
         - candidates image pixel indexes
         - WFM camera local frame (x, y) angular coordinates and errors, in [deg]
         - candidate equatorial coordinates (RA, Dec) and errors, in [deg]
         - candidate photons rate and error, in [ph/s]
         - candidate photons flux and error, in [ph/cm2/s]
-    
-    The coords errors are assumed to be 1 arcmin along x and 60 arcmin along y.
 
     Args:
         log (Log):
@@ -163,20 +183,12 @@ def compute_parameters(
     )
     EXPOSURE = sdl.header["EXPOSURE"]
     
-    shifts_x = log.log['shift_x']
-    shifts_y = log.log['shift_y']
-    fluences = log.log['fluence']
-
-    # coded-mask sensitivity along the (x, y) axis
-    # - TODO: insert correct camera sensitivity estimation (this is a proxy,
-    #         dthetax = 5 arcmin, dthetay = 60 arcmin at (upx, upy) = (1, 1))
-    DTHETA_X = 5.0 / UPX        # [arcmin]
-    DTHETA_Y = 60.0 / UPY       # [arcmin]
+    shifts_x, dshifts_x = log.log['shift_x'], log.log['dshift_x']
+    shifts_y, dshifts_y = log.log['shift_y'], log.log['dshift_y']
+    fluences, dfluences = log.log['fluence'], log.log['dfluence']
 
     # insert new entries
     params = (
-        LogEntry('dshift_x', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
-        LogEntry('dfluence', 'D', 'ph'),
         LogEntry('y', 'J', 'px'), LogEntry('x', 'J', 'px'),
         LogEntry('angle_x', 'D', 'deg'), LogEntry('dangle_x', 'D', 'deg'),
         LogEntry('angle_y', 'D', 'deg'), LogEntry('dangle_y', 'D', 'deg'),
@@ -188,38 +200,13 @@ def compute_parameters(
     log.insert(params)
 
     # helper functions
-    def arcmin2deg(theta: float) -> float:
-        """Angle unit conversion: [arcmin] to [deg]"""
-        return theta / 60
-    
-    def shift_error(shift: float, dtheta: float) -> float:
-        """Computes shift error."""
-        l = camera.specs['mask_detector_distance']  # [mm]
-        t = np.deg2rad(shift2angle(camera, shift))  # [rad]
-        dt = np.deg2rad(arcmin2deg(dtheta))         # [rad]
-        return l / np.square(np.cos(t)) * dt        # angle2shift(camera, arcmin2deg(dtheta))
-    
-    #def eq_coords_errors(
-    #    shiftx: float, dshiftx: float,
-    #    shifty: float, dshifty: float,
-    #) -> tuple[float, float]:
-    #    """Computes RA/DEC source errors."""
-    #    up_ra, up_dec = shift2equatorial(
-    #        sdl, camera, shiftx, shifty + dshifty
-    #    )
-    #    down_ra, down_dec = shift2equatorial(
-    #        sdl, camera, shiftx, shifty - dshifty
-    #    )
-    #    left_ra, left_dec = shift2equatorial(
-    #        sdl, camera, shiftx - dshiftx, shifty
-    #    )
-    #    right_ra, right_dec = shift2equatorial(
-    #        sdl, camera, shiftx + dshiftx, shifty
-    #    )
-    #    return (
-    #        abs(l_ra - r_ra) / 4,
-    #        abs(up_dec - down_dec) / 4,
-    #    )
+    def eq_coords_errors(
+        shiftx: float, dshiftx: float,
+        shifty: float, dshifty: float,
+    ) -> tuple[float, float]:
+        """Computes RA/DEC source errors."""
+        # TODO: compute errs from transform
+        raise NotImplementedError
     
     def effective_area(shiftx: float, shifty: float) -> float:
         """Computes detector area seen by the source."""
@@ -252,16 +239,6 @@ def compute_parameters(
         return proj.sum() * PX_AREA
 
     # compute parameters
-    dshifts_x, dshifts_y = (
-        tuple(shift_error(s, DTHETA_X) for s in shifts_x),
-        tuple(shift_error(s, DTHETA_Y) for s in shifts_y),
-    )
-    log.add_entry_values('dshift_x', dshifts_x)
-    log.add_entry_values('dshift_y', dshifts_y)
-
-    dfluences = [np.sqrt(f) for f in fluences]
-    log.add_entry_values('dfluence', dfluences)
-
     y, x = zip(
         *tuple(shift2pos(camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
@@ -272,8 +249,9 @@ def compute_parameters(
         lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
         (shifts_x, shifts_y),
     )
-    dthetas_x, dthetas_y = zip(
-        *tuple((arcmin2deg(DTHETA_X), arcmin2deg(DTHETA_Y)) for _ in range(len(shifts_x)))
+    dthetas_x, dthetas_y = map(
+        lambda dshifts: tuple(abs(shift2angle(camera, ds)) for ds in dshifts),
+        (dshifts_x, dshifts_y),
     )
     log.add_entry_values('angle_x', list(thetas_x))
     log.add_entry_values('angle_y', list(thetas_y))
@@ -285,9 +263,7 @@ def compute_parameters(
     )
     #dras, ddecs = zip(
     #    *tuple(
-    #        eq_coords_errors(sx, dsx, sy, dsy) for sx, dsx, sy, dsy in zip(
-    #            shifts_x, dshifts_x, shifts_y, dshifts_y,
-    #        )
+    #        eq_coords_errors() for _ in zip()
     #    )
     #)
     log.add_entry_values('ra', list(ras))
@@ -338,6 +314,12 @@ def catalogue_comparison(
     Compares the reconstructed IROS data with the catalogue,
     associating the candidates with the known sources.
 
+    The association is performed by comparing the local frame sky-coords
+    `shifts` of the catalogue sources with the shifts and relative errorboxes
+    of the decoded candidates at `3` sigma level.
+    If no catalogue sources are found, the candidates are labeled as new
+    sources, with the respective WFM coded-mask camera ID.
+
     Args:
         log (Log):
             IROS data output from `compute_parameters()`.
@@ -359,18 +341,14 @@ def catalogue_comparison(
     def extend_catalogue(rec: FITS_rec) -> FITS_rec:
         """Adds sources local frame angular coords to catalogue."""
         from astropy.io.fits import Column, BinTableHDU
-        shifts_x, shifts_y = zip(
+        ssx, ssy = zip(
             *tuple(
                 equatorial2shift(sdl, camera, ra, dec) for ra, dec in zip(rec['RA'], rec['DEC'])
             )
         )
-        ts_x, ts_y = map(
-            lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
-            (shifts_x, shifts_y),
-        )
-        thetas_x = Column(name='ANGLE_X', format='D', array=np.array(ts_x))
-        thetas_y = Column(name='ANGLE_Y', format='D', array=np.array(ts_y))
-        extended = list(rec.columns) + [thetas_x, thetas_y]
+        shifts_x = Column(name='SHIFT_X', format='D', array=np.array(ssx))
+        shifts_y = Column(name='SHIFT_Y', format='D', array=np.array(ssy))
+        extended = list(rec.columns) + [shifts_x, shifts_y]
         return BinTableHDU.from_columns(extended).data
     
     # set up
@@ -387,10 +365,10 @@ def catalogue_comparison(
     log.insert(params)
 
     def candidate_association(
-        thetax: float,
-        dthetax: float,
-        thetay: float,
-        dthetay: float,
+        shiftx: float,
+        dshiftx: float,
+        shifty: float,
+        dshifty: float,
         sigma: int | float = 3,
     ) -> tuple[str, float]:
         """Candidate association from catalogue."""
@@ -398,21 +376,15 @@ def catalogue_comparison(
         def closest_source(batch: FITS_rec) -> int:
             """Returns candidate's closer catalogue source index."""
             arg = np.argmin(
-                np.square(
-                    np.tan(np.deg2rad(batch['ANGLE_X'])) - np.tan(np.deg2rad(thetax))
-                )
-                +
-                np.square(
-                    np.tan(np.deg2rad(batch['ANGLE_Y'])) - np.tan(np.deg2rad(thetay))
-                )
+                np.square(batch['SHIFT_X'] - shiftx) + np.square(batch['SHIFT_Y'] - shifty)
             )
             return arg
     
         box = (
-            (database['ANGLE_X'] > thetax - sigma * dthetax) &
-            (database['ANGLE_X'] < thetax + sigma * dthetax) &
-            (database['ANGLE_Y'] > thetay - sigma * dthetay) &
-            (database['ANGLE_Y'] < thetay + sigma * dthetay) &
+            (database['SHIFT_X'] > shiftx - sigma * dshiftx) &
+            (database['SHIFT_X'] < shiftx + sigma * dshiftx) &
+            (database['SHIFT_Y'] > shifty - sigma * dshifty) &
+            (database['SHIFT_Y'] < shifty + sigma * dshifty) &
             (database['ID'] != KEYMAP['cxb_tag'])
         )
         associated_batch = database[box]
@@ -433,11 +405,11 @@ def catalogue_comparison(
 
     print("# Comparing with Catalogue...")
     # initial sources association
-    for tx, dtx, ty, dty in zip(
-        log.log["angle_x"], log.log["dangle_x"],
-        log.log["angle_y"], log.log["dangle_y"],
+    for sx, dsx, sy, dsy in zip(
+        log.log["shift_x"], log.log["dshift_x"],
+        log.log["shift_y"], log.log["dshift_y"],
     ):
-        sourceID, flux = candidate_association(tx, dtx, ty, dty)
+        sourceID, flux = candidate_association(sx, dsx, sy, dsy)
         log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
     
     # sources screening based on significance
