@@ -128,15 +128,17 @@ class PipelineParams:
         out_comp_name (str):
             Name for the IROS reconstructed sky composition FITS file.
         E_min (int | float | None):
-            Minimum photons energy in [keV] for the data filtering.
+            Minimum photons energy in [keV] for the observed data filtering.
         E_max (int | float | None):
-            Maximum photons energy in [keV] for the data filtering.
+            Maximum photons energy in [keV] for the observed data filtering.
         coords (CoordEquatorial | Sequence[CoordEquatorial] | None):
             Input photons RA/Dec (or sequence of RA/Dec) to filter out.
-        n (int | tuple[int] | None):
+        n (int | tuple[int, int] | None):
             Filtered interval of sources.
-        flux_range (tuple[int | float | None, int | float | None]):
-            Flux range in ph/cm2/s for the data filtering.
+        F_min (int | float | None):
+            Minimum flux range in [ph/cm2/s] for the catalogue data filtering.
+        F_max (int | float | None):
+            Maximum flux range in [ph/cm2/s] for the catalogue data filtering.
     """
     mask_file: str
     simul_data: str
@@ -163,7 +165,8 @@ class PipelineParams:
     E_max: int | float | None
     coords: CoordEquatorial | Sequence[CoordEquatorial] | None
     n: int | tuple[int, int] | None
-    flux_range: tuple[int | float | None, int | float | None]
+    F_min: int | float | None
+    F_max: int | float | None
 
 
 def config_parameters(
@@ -282,8 +285,15 @@ def config_parameters(
     out_comp_name = save_path + f"COMPOSED_OUTsky_IROS_{cam_a.upper()}_{cam_b.upper()}_TEST_{analysisID}.fits"
 
     # filters params
-    if energy_range is None: E_min, E_max = None, None
-    elif any(energy_range): E_min, E_max = energy_range
+    if (energy_range is None) or (not any(energy_range)):
+        E_min, E_max = None, None
+    elif any(energy_range):
+        E_min, E_max = energy_range
+    
+    if (flux_range is None) or (not any(flux_range)):
+        F_min, F_max = None, None
+    elif any(flux_range):
+        F_min, F_max = flux_range
 
     params = PipelineParams(
         mask_file=mask_file,
@@ -311,7 +321,8 @@ def config_parameters(
         E_max=E_max,
         coords=coords,
         n=n,
-        flux_range=flux_range,
+        F_min=F_min,
+        F_max=F_max,
     )
     report(params)
     return params
