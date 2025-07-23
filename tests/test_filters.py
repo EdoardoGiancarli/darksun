@@ -297,11 +297,13 @@ class TestFilters(TestCase):
     def test_catalogue_filter(self):
         """Test for `filter_catalogue()`."""
         n = (3, 6)
-        flux_range = (20, 90)
+        fmin, fmax = 20, 90
 
         # test for ValueError when both `n` and `flux_range` are given
         with self.assertRaises(ValueError):
-            filter_catalogue(self.catalogue, n=n, flux_range=flux_range)
+            filter_catalogue(self.catalogue, n=n, F_min=fmin, F_max=fmax)
+            filter_catalogue(self.catalogue, n=n, F_min=fmin)
+            filter_catalogue(self.catalogue, n=n, F_max=fmax)
         
         # test for `n`
         filtered = filter_catalogue(self.catalogue, n=n)
@@ -318,7 +320,10 @@ class TestFilters(TestCase):
 
         # test for `flux_range`
         filtered = filter_catalogue(
-            self.catalogue, n=None, flux_range=flux_range,
+            self.catalogue,
+            n=None,
+            F_min=fmin,
+            F_max=fmax,
         )
         target = np.rec.array([
             ('SRC_C', 87.2, 143),

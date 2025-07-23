@@ -282,11 +282,11 @@ class CatalogueLoader(SimulationDataLoader):
             return self.data
         
         rec = deepcopy(self.data)
-        flux_range = (self.F_min, self.F_max) if any((self.F_min, self.F_max)) else None
         return filter_catalogue(
             catalogue=rec,
             n=self.n,
-            flux_range=flux_range,
+            F_min=self.F_min,
+            F_max=self.F_max,
         )
 
 
@@ -294,7 +294,8 @@ def get_catalogue(
     filepath: str | Path,
     *,
     n: int | tuple[int, int] | None = None,
-    flux_range: tuple[int | float | None, int | float | None] | None = None,
+    F_min: int | float | None = None,
+    F_max: int | float | None = None,
 ) -> CatalogueLoader:
     """
     Checks validity of filepath and intializes CatalogueLoader.
@@ -305,31 +306,30 @@ def get_catalogue(
         n (int | tuple[int, int] | None, optional (default=`None`)):
             Filtered interval of sources, up to the n-th brightest
             source or from `n[0]` to `n[1]` if `n` is a tuple.
-        flux_range (tuple[int | float | None, int | float | None] | None, optional (default=`None`)):
-            Flux range in ph/cm2/s for the data filtering. The
-            input tuple is interpreted as (`F_min`, `F_max`).
+        F_min (int | float | None, optional (default=`None`)):
+            Minimum flux range in [ph/cm2/s] for the data filtering.
+        F_max (int | float | None, optional (default=`None`)):
+            Maximum flux range in [ph/cm2/s] for the data filtering.
 
     Returns:
         output (CatalogueLoader):
             CatalogueLoader instance with filterable sources catalogue.
     
     Raises:
-        ValueError: If `n` or `flux_range` are both specified for catalogues filtering.
+        ValueError: If `n` or the flux range are both specified for catalogues filtering.
     """
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
     
     if _exists_valid(filepath):
-        if n and flux_range:
-            raise ValueError("Specify either 'n' or 'flux_range' to filter the catalogue.")
-        if flux_range is None:
-            flux_range = (None, None)
+        if n and any((F_min, F_max)):
+            raise ValueError("Specify either 'n' OR the flux range to filter the catalogue.")
         
         sdl = CatalogueLoader(
             filepath=filepath,
             n=n,
-            F_min=flux_range[0],
-            F_max=flux_range[1],
+            F_min=F_min,
+            F_max=F_max,
         )
         return sdl
 

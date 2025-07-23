@@ -109,12 +109,13 @@ def filter_catalogue(
     catalogue: FITS_rec,
     *,
     n: int | tuple[int, int] | None,
-    flux_range: tuple[int | float | None, int | float | None] | None = None,
+    F_min: int | float | None = None,
+    F_max: int | float | None = None,
 ) -> FITS_rec:
     """
     Filters the input `catalogue` record based on the sources fluence OR flux.
     If `n` is given, it selects the `n` brightest sources from the input
-    record, or a given interval of sources. If `flux_range` is given, it
+    record, or a given interval of sources. If a flux range is given, it
     filters the input record for a given flux range.
     
     Args:
@@ -123,23 +124,24 @@ def filter_catalogue(
         n (int | tuple[int, int] | None):
             Filtered interval of sources, up to the n-th brightest
             source or from `n[0]` to `n[1]` if `n` is a tuple.
-        flux_range (tuple[int | float | None, int | float | None] | None, optional (default=`None`)):
-            Flux range in ph/cm2/s for the data filtering. The
-            input tuple is interpreted as (`F_min`, `F_max`).
+        F_min (int | float | None, optional (default=`None`)):
+            Minimum flux range in [ph/cm2/s] for the data filtering.
+        F_max (int | float | None, optional (default=`None`)):
+            Maximum flux range in [ph/cm2/s] for the data filtering.
     
     Returns:
         output (FITS_rec): Output filtered data container.
     
     Raises:
-        ValueError: If `n` or `flux_range` are both specified for catalogues filtering.
+        ValueError: If `n` or the flux range are both specified for catalogues filtering.
     """
-    if n and flux_range:
-        raise ValueError("Specify either 'n' or 'flux_range' to filter the catalogue.")
+    if n and any((F_min, F_max)):
+        raise ValueError("Specify either 'n' OR the flux range to filter the catalogue.")
     
     if n is not None:
         return source_filter(catalogue, n)
-    elif flux_range is not None:
-        return flux_filter(catalogue, *flux_range)
+    elif any((F_min, F_max)):
+        return flux_filter(catalogue, F_min, F_max)
     
     return catalogue
 

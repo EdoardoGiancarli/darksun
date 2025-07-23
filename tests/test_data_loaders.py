@@ -107,24 +107,32 @@ class TestCatalogueLoader(TestCase):
         catalogue2 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         catalogue3 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(fmin, None),
+            F_min=fmin,
         )
         catalogue4 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(None, fmax),
+            F_max=fmax,
         )
 
         with self.assertRaises(ValueError):
             catalogue5 = get_catalogue(
                 filepath=_path_test_catalogue,
                 n=n,
-                flux_range=(fmin, fmax),
+                F_min=fmin,
+                F_max=fmax,
+            )
+            catalogue6 = get_catalogue(
+                filepath=_path_test_catalogue,
+                n=n,
+                F_min=fmin,
+            )
+            catalogue7 = get_catalogue(
+                filepath=_path_test_catalogue,
+                n=n,
+                F_max=fmax,
             )
     
     def test_filter_allowed(self):
@@ -134,7 +142,6 @@ class TestCatalogueLoader(TestCase):
         sdl1 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         data = sdl1.DLdata
 
@@ -142,21 +149,20 @@ class TestCatalogueLoader(TestCase):
         fmin, fmax = 20, 100
         sdl2 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(fmin, fmax),
+            F_min=fmin,
+            F_max=fmax,
         )
         data = sdl2.DLdata
     
     def test_filtering(self):
         """Tests if filters are correctly applied."""
         n = (3, 6)
-        flux_range = (20, 90)
+        fmin, fmax = 20, 90
 
         # test for `n`
         sdl1 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         target1 = np.rec.array([
             ('SRC_A', 10.684,  41.269, 12.4, 120),
@@ -173,8 +179,8 @@ class TestCatalogueLoader(TestCase):
         # test for `flux_range`
         sdl2 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=flux_range,
+            F_min=fmin,
+            F_max=fmax,
         )
         target2 = np.rec.array([
             ('SRC_C', 201.365, -43.019, 87.2, 143),
