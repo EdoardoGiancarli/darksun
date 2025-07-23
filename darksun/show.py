@@ -213,6 +213,7 @@ def skyfield_map(
     camera: CodedMaskCamera,
     show_IDs: bool = True,
     show_coords: bool = True,
+    show_errbox: bool = True,
 ) -> None:
     """
     Displays the reconstructed sources in the sky-grid, optionally
@@ -227,11 +228,15 @@ def skyfield_map(
             If `True`, the source IDs are shown in the plot.
         show_coords (bool, optional (default=`True`)):
             If `True`, the RA/Dec coords are shown in the plot.
+        show_errbox (bool, optional (default=`True`)):
+            If `True`, the source pos errorboxes are displayed.
     """
     skyx, skyy = camera.bins_sky
     SETUP = {
         'x': 'shift_x',
+        'err_x': 'dshift_x',
         'y': 'shift_y',
+        'err_y': 'dshift_y',
         'xlabel': 'x bins [mm]',
         'ylabel': 'y bins [mm]',
         'title': f'{log.name} SkyMap-Grid',
@@ -241,6 +246,7 @@ def skyfield_map(
         'height': skyy[-1] - skyy[0],
         'color': 'k',
         'txt_color': 'white',
+        'errbox_color': 'OrangeRed',
 
         'xline': ((skyx[0], skyx[-1]), (0, 0)),
         'yline': ((0, 0), (skyy[0], skyy[-1])),
@@ -270,23 +276,32 @@ def skyfield_map(
         log.log[SETUP['x']], log.log[SETUP['y']], color='LawnGreen',
         marker='+', alpha=PLOTPARAMS['alpha'], s=15, label='sources',
     )
-    if any((show_IDs, show_coords)):
-        for name, shiftx, shifty, ra, dec in zip(
+    if any((show_IDs, show_coords, show_errbox)):
+        for name, sx, dsx, sy, dsy, ra, dec in zip(
             log.log['ID'],
             log.log[SETUP['x']],
+            log.log[SETUP['err_x']],
             log.log[SETUP['y']],
+            log.log[SETUP['err_y']],
             log.log['ra'],
             log.log['dec'],
         ):
             if show_coords:
                 ax.text(
-                    shiftx - 18, shifty + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
+                    sx - 18, sy + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
                     fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
                 )
             if show_IDs:
                 ax.text(
-                    shiftx - 5, shifty - 5, name, color=SETUP['txt_color'],
+                    sx - 5, sy - 5, name, color=SETUP['txt_color'],
                     fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                )
+            if show_errbox:
+                ax.add_patch(
+                    patches.Rectangle(
+                        xy=(sx - dsx, sy - dsy), width=2*dsx, height=2*dsy,
+                        linewidth=0.1, edgecolor=SETUP['errbox_color'], facecolor=None,
+                    )
                 )
 
     ax.legend(loc='best')
