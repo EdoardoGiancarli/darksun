@@ -341,15 +341,20 @@ def catalogue_comparison(
     def extend_catalogue(rec: FITS_rec) -> FITS_rec:
         """Adds sources local frame angular coords to catalogue."""
         from astropy.io.fits import Column, BinTableHDU
+        extended = [
+            Column(name=name, format=rec.columns[name].format, array=rec[name])
+            for name in rec.names
+        ]
         ssx, ssy = zip(
             *tuple(
                 equatorial2shift(sdl, camera, ra, dec) for ra, dec in zip(rec['RA'], rec['DEC'])
             )
         )
-        shifts_x = Column(name='SHIFT_X', format='D', array=np.array(ssx))
-        shifts_y = Column(name='SHIFT_Y', format='D', array=np.array(ssy))
-        extended = list(rec.columns) + [shifts_x, shifts_y]
-        return BinTableHDU.from_columns(extended).data
+        shifts = [
+            Column(name='SHIFT_X', format='D', array=np.array(ssx)),
+            Column(name='SHIFT_Y', format='D', array=np.array(ssy)),
+        ]
+        return BinTableHDU.from_columns(extended + shifts).data
     
     # set up
     KEYMAP = {
