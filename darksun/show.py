@@ -7,7 +7,8 @@ from typing import Any, Sequence
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib as mpl
-import matplotlib.patches as patches
+from matplotlib.patches import Rectangle
+from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
@@ -23,6 +24,8 @@ RCPARAMS = {
     'xtick.labelsize': 12,
     'ytick.labelsize': 12,
 }
+mpl.rcParams.update(RCPARAMS)
+
 PLOTPARAMS = {
     # figure
     'size': 6,
@@ -56,18 +59,17 @@ PLOTPARAMS = {
     'txt_fw': 'bold',
     'txt_color': 'black',
 }
-mpl.rcParams.update(RCPARAMS)
 
 
-def _config_subplots(nplots: int) -> None:
+def _config_subplots(nplots: int) -> tuple[Figure, Axes | list[Axes]]:
     """Creates and configures subplots."""
     size = PLOTPARAMS['size']
     fig_size = (size * nplots + 1, size) if nplots > 1 else (size, size)
-    fig, axes = plt.subplots(1, nplots, figsize=fig_size)
+    fig, axs = plt.subplots(1, nplots, figsize=fig_size)
     fig.tight_layout()
     fig.dpi = PLOTPARAMS['dpi']
     fig.subplots_adjust(wspace=PLOTPARAMS['spacing'] / size)
-    return fig, (axes if nplots > 1 else [axes])
+    return fig, (axs if nplots > 1 else [axs])
 
 def _config_labels(ax: Axes, xlabel: str | None, ylabel: str | None, title: str) -> None:
     """Configures labels and titles."""
@@ -109,6 +111,7 @@ def biplot(
 def distr_plot(
     arr: NDArray,
     title: str,
+    *,
     bins: int | Sequence[int | float] = 50,
     xlabel: str | None = None,
     xlim: tuple[float | None, float | None] | None = None,
@@ -132,7 +135,7 @@ def distr_plot(
             Edge values for the distribution.
         pdf_distr (tuple[str, NDArray] | None, optional (default=`None`)):
             Input PDF distribution for comparison.
-        hist_kwargs (Any)
+        hist_kwargs (Any): Keyword arguments passed to `matplotlib.pyplot.hist`.
     """
     arr_ = arr.copy()
     if np.ndim(arr_) > 1: arr_ = arr_.reshape(-1)
@@ -156,12 +159,13 @@ def distr_plot(
 
 def image_plot(
     arr: NDArray,
+    *,
     title: str = None,
     xlabel: str = None,
     ylabel: str = None,
     cbarlabel: str = None,
     cbarloc: str = 'right',
-    **kwargs: Any,
+    **img_kwargs: Any,
 ) -> None:
     """
     Displays a 2D array as an image.
@@ -173,12 +177,12 @@ def image_plot(
         ylabel (str, optional (default=`None`)): Label for the y-axis.
         cbarlabel (str, optional (default=`None`)): Label for the colorbar.
         cbarloc (str, optional (default=`'right'`)): Location of the colorbar.
-        **kwargs (Any): Additional keyword arguments passed to `matplotlib.pyplot.imshow`.
+        **img_kwargs (Any): Keyword arguments passed to `matplotlib.pyplot.imshow`.
     """
     fig, ax = _config_subplots(1)
     _config_labels(ax, xlabel, ylabel, title)
     _config_ticks(ax)
-    img = ax.imshow(arr, origin=PLOTPARAMS['cbar_origin'], **kwargs)
+    img = ax.imshow(arr, origin=PLOTPARAMS['cbar_origin'], **img_kwargs)
     cbar = fig.colorbar(
         img, ax=ax, location=cbarloc, shrink=PLOTPARAMS['cbar_shrink'], pad=PLOTPARAMS['cbar_pad'],
     )
@@ -211,6 +215,7 @@ def sky_plot(
 def skyfield_map(
     log: Log,
     camera: CodedMaskCamera,
+    *,
     show_IDs: bool = True,
     show_coords: bool = True,
     show_errbox: bool = True,
@@ -263,7 +268,7 @@ def skyfield_map(
 
     # plot bkg and axis lines
     ax.add_patch(
-        patches.Rectangle(
+        Rectangle(
             xy=SETUP['ancor'], width=SETUP['width'], height=SETUP['height'],
             linewidth=0.1, edgecolor='k', facecolor=SETUP['color'],
         )
@@ -298,7 +303,7 @@ def skyfield_map(
                 )
             if show_errbox:
                 ax.add_patch(
-                    patches.Rectangle(
+                    Rectangle(
                         xy=(sx - dsx, sy - dsy), width=2*dsx, height=2*dsy,
                         linewidth=0.1, edgecolor=SETUP['errbox_color'], facecolor=None,
                     )

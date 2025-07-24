@@ -322,7 +322,7 @@ def catalogue_comparison(
 
     Args:
         log (Log):
-            IROS data output from `compute_parameters()`.
+            IROS data output.
         catalogue (CatalogueLoader):
             Catalogue data for the WFM coded-mask camera.
         sdl (DataLoader):
@@ -361,14 +361,9 @@ def catalogue_comparison(
         'cxb_tag': 'gctr_diffuse',
         'NEW_ID': 1,
     }
-    database = extend_catalogue(catalogue.DLdata)
+    DATABASE = extend_catalogue(catalogue.DLdata)
 
-    # update Log
-    params = (
-        LogEntry('ID', '20A', ''), LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
-    )
-    log.insert(params)
-
+    # catalogue comparison and sources association
     def candidate_association(
         shiftx: float,
         dshiftx: float,
@@ -384,15 +379,20 @@ def catalogue_comparison(
                 np.square(batch['SHIFT_X'] - shiftx) + np.square(batch['SHIFT_Y'] - shifty)
             )
             return arg
+        
+        def brightest_source(batch: FITS_rec) -> int:
+            """Returns brightest catalogue source index within errorbox."""
+            arg = np.argmax(batch['FLUX'])
+            return arg
     
         box = (
-            (database['SHIFT_X'] > shiftx - sigma * dshiftx) &
-            (database['SHIFT_X'] < shiftx + sigma * dshiftx) &
-            (database['SHIFT_Y'] > shifty - sigma * dshifty) &
-            (database['SHIFT_Y'] < shifty + sigma * dshifty) &
-            (database['ID'] != KEYMAP['cxb_tag'])
+            (DATABASE['SHIFT_X'] > shiftx - sigma * dshiftx) &
+            (DATABASE['SHIFT_X'] < shiftx + sigma * dshiftx) &
+            (DATABASE['SHIFT_Y'] > shifty - sigma * dshifty) &
+            (DATABASE['SHIFT_Y'] < shifty + sigma * dshifty) &
+            (DATABASE['ID'] != KEYMAP['cxb_tag'])
         )
-        associated_batch = database[box]
+        associated_batch = DATABASE[box]
 
         if not any(associated_batch):
             sourceID = f'lemx-{log.name.lower()}S{KEYMAP['NEW_ID']}'
@@ -407,12 +407,18 @@ def catalogue_comparison(
             flux = associated_batch['FLUX'][arg]
 
         return sourceID, flux
+    
+    # update Log
+    params = (
+        LogEntry('ID', '20A', ''), LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
+    )
+    log.insert(params)
 
     print("# Comparing with Catalogue...")
     # initial sources association
     for sx, dsx, sy, dsy in zip(
-        log.log["shift_x"], log.log["dshift_x"],
-        log.log["shift_y"], log.log["dshift_y"],
+        log.log['shift_x'], log.log['dshift_x'],
+        log.log['shift_y'], log.log['dshift_y'],
     ):
         sourceID, flux = candidate_association(sx, dsx, sy, dsy)
         log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
