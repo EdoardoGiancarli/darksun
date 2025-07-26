@@ -14,8 +14,11 @@ from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
 from bloodmoon.mask import CodedMaskCamera
-from darksun.data import Log
-from darksun.images import crop
+from bloodmoon.optim import model_sky
+
+from .data import Log
+from .images import crop
+from .images import upscale
 
 __all__ = []
 
@@ -440,6 +443,7 @@ def slices_plot(
     ylim_xslice: tuple[Any, Any] | None = None,
     ylim_yslice: tuple[Any, Any] | None = None,
     labels: str | Sequence[str | None] | None = None,
+    cameraID: str | None = None,
     **kwargs: Any,
 ) -> None:
     """
@@ -454,7 +458,7 @@ def slices_plot(
         sky (NDArray | Sequence[NDArray]):
             Single 2D array or sequence of 2D arrays representing image-like data.
         pos (tuple[int, int]):
-            The `(y, x)` center coordinates around which to extract the slices.
+            The (y, x) center coordinates around which to extract the slices.
         crp (tuple[int, int]):
             Size of the cropping along (y, x).
         source (str | None, optional (default=`None`)):
@@ -467,6 +471,8 @@ def slices_plot(
             Y-axis limits for the y-axis slice plot.
         labels (str | Sequence[str | None] | None, optional (default=`None`)):
             Labels for each 2D array slice, used in the legend.
+        cameraID (str | None, optional (default=`None`)):
+            ID for the Wide Field Monitor coded-mask camera.
         **kwargs (Any):
             Additional keyword arguments for the `biplot` function.
     """
@@ -482,10 +488,14 @@ def slices_plot(
     xslice, yslice = zip(
         *tuple((c[crp[0], :], c[:, crp[1]]) for c in cropped)
     )
+    name, cam = map(
+        lambda x: x.upper() if x else '',
+        (source, cameraID),
+    )
     biplot(
         dmap_A=map4biplot(
             arrs=xslice,
-            title=f"{source.upper() if source else ''} X-axis Slice",
+            title=f"{name} X-axis Slice {cam}",
             xlabel='x [px]',
             ylabel=ylabel or 'counts [ph]',
             labels=labels,
@@ -494,7 +504,7 @@ def slices_plot(
         ),
         dmap_B=map4biplot(
             arrs=yslice,
-            title=f"{source.upper() if source else ''} Y-axis Slice",
+            title=f"{name} Y-axis Slice {cam}",
             xlabel='y [px]',
             ylabel=ylabel or 'counts [ph]',
             labels=labels,
@@ -506,12 +516,100 @@ def slices_plot(
 
 
 def reconstruction_plot(
-    *args, **kwargs,
+    true_sky: NDArray,
+    log: Log,
+    crp: tuple[int, int],
+    camera: CodedMaskCamera,
+    vignetting: bool = True,
+    psfy: bool = True,
 ) -> None:
     """
-    The one with all the sources profiles "up_to".
+    Displays the IROS reconstruction effect wrt the original decoded sky.
+
+    Specifically, it shows:
+        - IROS reconstructed source slices wrt the true sky
+        - source slices residues
+        - source profiles residues heatmap
+
+    Args:
+        true_sky (NDArray):
+            True observed decoded sky.
+        log (Log):
+            Reconstructed sources database.
+        crp (tuple[int, int]):
+            Size of the cropping along (y, x).
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance used for imaging and reconstruction.
+        vignetting (bool, optional (default=`True`)):
+            Simulates vignetting effects.
+        psfy (bool, optional (default=`True`)):
+            Simulates detector reconstruction effects.
+    
+    Notes:
+        - A copy of `true_sky` is used to avoid memory overwrite.
     """
-    raise NotImplementedError
+    true_sky_ = true_sky.copy()
+    UPX, UPY = camera.upscale_f
+
+    for source, sx, sy, f, x, y in zip(
+        log.log['ID'],
+        log.log['shift_x'],
+        log.log['shift_y'],
+        log.log['fluence'],
+        log.log['x'],
+        log.log['y'],
+    ):
+        POS = (y, x)
+
+        # simulate source
+        modeled = model_sky(
+            camera=camera,
+            shift_x=sx,
+            shift_y=sy,
+            fluence=f,
+            vignetting=vignetting,
+            psfy=psfy,
+        ).astype(np.int32)
+
+        # plot IROS vs True skies slices (profiles and residues)
+        slices_plot(
+            sky=(true_sky_, modeled),
+            pos=POS,
+            crp=crp,
+            source=source,
+            labels=('True', 'IROS'),
+            cameraID=log.name,
+        )
+        slices_plot(
+            sky=true_sky_ - modeled,
+            pos=POS,
+            crp=crp,
+            source=source,
+            ylabel='residues [ph]',
+            cameraID=log.name,
+        )
+
+        # plot IROS vs True residues heatmaps
+        CUT = (
+            int(camera.specs['slit_deltay'] * UPY / camera.specs['mask_deltay']) + 1,
+            int(camera.specs['slit_deltax'] * UPX / camera.specs['mask_deltax']) + 1,
+        )
+        F_UPY, F_UPX = 2, 5
+
+        true_crp, modeled_crp = map(
+            lambda x: crop(x, pos=POS, crp=CUT, strict=False),
+            (true_sky_, modeled),
+        )
+        image_plot(
+            arr=upscale(true_crp - modeled_crp, F_UPY, F_UPX) * np.prod((F_UPY, F_UPX)),
+            title=f'True - IROS Residues {log.name}',
+            cbarlabel='counts',
+            cmap='bwr',
+            extent=(-CUT[1] * F_UPX, CUT[1] * F_UPX, -CUT[0] * F_UPY, CUT[0] * F_UPY),
+        )
+
+        # remove source from True sky
+        true_sky_ -= modeled
 
 
 def sky_plot(
