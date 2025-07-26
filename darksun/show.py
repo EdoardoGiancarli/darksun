@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 
 from bloodmoon.mask import CodedMaskCamera
 from darksun.data import Log
+from darksun.images import crop
 
 __all__ = []
 
@@ -113,35 +114,35 @@ def _config_view(
     ax.set_xscale(xscale); ax.set_yscale(yscale)
 
 """                               
-                          █████████████                     
-                     ███████  ░░░░  ███████                 
-                   ████       ░░░░       ████               
-                 ████░░     ░░░░░░░░     ░░████             
-                 ██  ░░░░░░░░░░░░░░░░░░░░░░  ██             
-               ████    ░░░░░        ░░░░░    ████           
-               ████    ░░░░░        ░░░░░    ████           
-               ██      ░░░             ░░      ██           
-               ██      ░░░             ░░      ██           
-               ██    ░░░░░             ░░░░    ██           
-               ██░░░░░░░░░░░        ░░░░░░░░░░░██           
-               ██░░░░██████████████████████░░░░██           
-               ████████     ██    ██     ████████           
-               ████████     ██    ██     ████████           
-                 ████       ██    ██       ████             
-       ██████████████                      ██               
-    ███████      █████████████████████████████              
-    ███████      █████████████████████████████              
-    ███          █████████████████████████████████████     
-    ███          ██████    ██████   █████           ▒████   
-    ███████      ██████    ██████   █████    ██████   ▒███ 
-       ████      ██████    ██████   █████    ██████   ▒███ 
-       ████      ██████    ██████   █████    ██████   ▒███ 
-       ████      ██████    ██████   █████           ▒████
-       ████      ██████    ██████   █████    █████████
- ██████████      ████████          ██████    ██████ 
- ███                   ████████████████████████████            
- ███                   ██████            
- ████████████████████████████                        
+                                             █████████████                     
+                                        ███████  ░░░░  ███████                 
+                                      ████       ░░░░       ████               
+                                    ████░░     ░░░░░░░░     ░░████             
+                                    ██  ░░░░░░░░░░░░░░░░░░░░░░  ██             
+                                  ████    ░░░░░        ░░░░░    ████           
+                                  ████    ░░░░░        ░░░░░    ████           
+                                  ██      ░░░             ░░      ██           
+                                  ██      ░░░             ░░      ██           
+                                  ██    ░░░░░             ░░░░    ██           
+                                  ██░░░░░░░░░░░        ░░░░░░░░░░░██           
+                                  ██░░░░██████████████████████░░░░██           
+                                  ████████     ██    ██     ████████           
+                                  ████████     ██    ██     ████████           
+                                    ████       ██    ██       ████             
+                          ██████████████                      ██               
+                       ███████      █████████████████████████████              
+                       ███████      █████████████████████████████              
+                       ███          █████████████████████████████████████     
+                       ███          ██████    ██████   █████           ▒████   
+                       ███████      ██████    ██████   █████    ██████   ▒███ 
+                          ████      ██████    ██████   █████    ██████   ▒███ 
+                          ████      ██████    ██████   █████    ██████   ▒███ 
+                          ████      ██████    ██████   █████           ▒████
+                          ████      ██████    ██████   █████    █████████
+                    ██████████      ████████          ██████    ██████ 
+                    ███                   ████████████████████████████            
+                    ███                   ██████            
+                    ████████████████████████████                        
 """
 
 def map4biplot(
@@ -430,12 +431,78 @@ def image_plot(
 
 
 def slices_plot(
-    *args, **kwargs,
+    sky: NDArray | Sequence[NDArray],
+    pos: tuple[int, int],
+    crp: tuple[int, int],
+    *,
+    source: str | None = None,
+    ylabel: str | None = None,
+    ylim_xslice: tuple[Any, Any] | None = None,
+    ylim_yslice: tuple[Any, Any] | None = None,
+    labels: str | Sequence[str | None] | None = None,
+    **kwargs: Any,
 ) -> None:
     """
-    
+    Plots horizontal and vertical slices of 2D data arrays centered at a given position.
+
+    This function extracts 1D slices along the x- and y-axes from one or more 2D arrays 
+    centered at `pos` with size `2 * crp + 1`. The resulting slices are plotted using 
+    a dual-panel plot, with optional customization for axis labels, y-axis limits, 
+    and plot annotations.
+
+    Parameters:
+        sky (NDArray | Sequence[NDArray]):
+            Single 2D array or sequence of 2D arrays representing image-like data.
+        pos (tuple[int, int]):
+            The `(y, x)` center coordinates around which to extract the slices.
+        crp (tuple[int, int]):
+            Size of the cropping along (y, x).
+        source (str | None, optional (default=`None`)):
+            Optional source label to include in plot titles.
+        ylabel (str | None, optional (default=`None`)):
+            Label for the y-axis of both slice plots.
+        ylim_xslice (tuple[Any, Any] | None, optional (default=`None`)):
+            Y-axis limits for the x-axis slice plot.
+        ylim_yslice (tuple[Any, Any] | None, optional (default=`None`)):
+            Y-axis limits for the y-axis slice plot.
+        labels (str | Sequence[str | None] | None, optional (default=`None`)):
+            Labels for each 2D array slice, used in the legend.
+        **kwargs (Any):
+            Additional keyword arguments for the `biplot` function.
     """
-    raise NotImplementedError
+    def phase(x: NDArray) -> NDArray:
+        """Centers x-axis values around zero."""
+        return np.arange(len(x)) - len(x) // 2
+    
+    cropped = tuple(
+        crop(s, pos, crp, strict=False) for s in (
+            (sky,) if isinstance(sky, np.ndarray) else sky
+        )
+    )
+    xslice, yslice = zip(
+        *tuple((c[crp[0], :], c[:, crp[1]]) for c in cropped)
+    )
+    biplot(
+        dmap_A=map4biplot(
+            arrs=xslice,
+            title=f"{source.upper() if source else ''} X-axis Slice",
+            xlabel='x [px]',
+            ylabel=ylabel or 'counts [ph]',
+            labels=labels,
+            x=map(phase, xslice),
+            ylim=ylim_xslice or (None, None),
+        ),
+        dmap_B=map4biplot(
+            arrs=yslice,
+            title=f"{source.upper() if source else ''} Y-axis Slice",
+            xlabel='y [px]',
+            ylabel=ylabel or 'counts [ph]',
+            labels=labels,
+            x=map(phase, yslice),
+            ylim=ylim_yslice or (None, None),
+        ),
+        **kwargs,
+    )
 
 
 def reconstruction_plot(
