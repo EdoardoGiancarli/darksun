@@ -248,7 +248,9 @@ def run(params: PipelineParams) -> None:
         ):
             with ds.timer("IROS reconstructed skies"):
                 skies = tuple(
-                    ds.make_sky(logID.log, wfm, params.vignetting, params.psfy, res)
+                    ds.make_sky(
+                        logID.log, wfm, vignetting=params.vignetting, psfy=params.psfy, background=res,
+                    )
                     for logID, res in zip(logs, skies)
                 )
                 snrs = tuple(snratio(sky, np.clip(var_, a_min=1, a_max=None)) for sky, var_ in zip(skies, variances))

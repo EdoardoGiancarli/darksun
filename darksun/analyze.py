@@ -146,6 +146,7 @@ def compute_parameters(
     log: Log,
     camera: CodedMaskCamera,
     sdl: DataLoader,
+    *,
     vignetting: bool = True,
     psfy: bool = True,
 ) -> Log:

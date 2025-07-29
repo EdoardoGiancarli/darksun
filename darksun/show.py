@@ -162,6 +162,7 @@ def map4biplot(
     ylim: tuple[Any, Any] = (None, None),
     xscale: str = 'linear',
     yscale: str = 'linear',
+    tags: Sequence[tuple[str, Any, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Configures a dictionary with the specified info for plotting.
@@ -207,6 +208,9 @@ def map4biplot(
         yscale (str, optional (default=`linear`)):
             The scale for the y-axis (e.g., 'linear', 'log').
             Applies to the entire plot.
+        tags (Sequence[tuple[str, Any, Any]], optional (default=`None`)):
+            Sequence of tags strings and positions `('id', y, x)` (e.g., to mark the
+            scatter points with the ID of the sources).
     
     Returns:
         output (dict[str, Any]): Map with the info for the plot.
@@ -274,6 +278,7 @@ def map4biplot(
         'ylim': ylim,
         'xscale': xscale,
         'yscale': yscale,
+        'tags': tags,
     }
     return dmap
 
@@ -339,7 +344,13 @@ def biplot(
                     raise ValueError(
                         f"Invalid plot style '{dmap['style'][idx]}'. Must be 'plot', 'scatter' or 'bar'."
                     )
-        
+            
+        if dmap['tags'] is not None:
+            for (name, y, x) in dmap['tags']:
+                ax.text(
+                    x, y, name, color=PLOTPARAMS['txt_color'],
+                    fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                )
         _config_view(
             ax, dmap['xlim'], dmap['ylim'], dmap['xscale'], dmap['yscale'],
         )
@@ -520,6 +531,7 @@ def reconstruction_plot(
     log: Log,
     crp: tuple[int, int],
     camera: CodedMaskCamera,
+    *,
     vignetting: bool = True,
     psfy: bool = True,
 ) -> None:

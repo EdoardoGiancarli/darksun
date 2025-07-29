@@ -40,7 +40,13 @@ from .images import crop
 from .images import make_sky
 from .images import WFM_composition
 
-# from .show import __all__
+from .show import map4biplot
+from .show import biplot
+from .show import distr_plot
+from .show import image_plot
+from .show import slices_plot
+from .show import reconstruction_plot
+from .show import skyfield_map
 
 # from .stats import __all__
 

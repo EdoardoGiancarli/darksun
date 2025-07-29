@@ -197,6 +197,7 @@ def crop(
 def make_sky(
     data: dict,
     camera: CodedMaskCamera,
+    *,
     vignetting: bool = True,
     psfy: bool = True,
     background: NDArray = None,
