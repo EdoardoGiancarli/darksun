@@ -26,4 +26,21 @@ class LogEntry(NamedTuple):
     unit: str
 
 
+class Tag(NamedTuple):
+    """
+    Tag container for marking a point in a plot.
+
+    Attributes:
+        ID (str):
+            Tag name.
+        y (int | float):
+            Position along the y-axis.
+        x (int | float):
+            Position along the x-axis.
+    """
+    ID: str
+    y: int | float
+    x: int | float
+
+
 # end

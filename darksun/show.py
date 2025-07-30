@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.optim import model_sky
 
+from .types import Tag
 from .data import Log
 from .images import crop
 from .images import upscale
@@ -162,7 +163,7 @@ def map4biplot(
     ylim: tuple[Any, Any] = (None, None),
     xscale: str = 'linear',
     yscale: str = 'linear',
-    tags: Sequence[tuple[str, Any, Any]] | None = None,
+    tags: Tag | Sequence[Tag] | None = None,
 ) -> dict[str, Any]:
     """
     Configures a dictionary with the specified info for plotting.
@@ -208,8 +209,8 @@ def map4biplot(
         yscale (str, optional (default=`linear`)):
             The scale for the y-axis (e.g., 'linear', 'log').
             Applies to the entire plot.
-        tags (Sequence[tuple[str, Any, Any]], optional (default=`None`)):
-            Sequence of tags strings and positions `('id', y, x)` (e.g., to mark the
+        tags (Tag | Sequence[Tag] | None, optional (default=`None`)):
+            Single `Tag` or sequence of `Tag`s objects (e.g., to mark the
             scatter points with the ID of the sources).
     
     Returns:
@@ -248,6 +249,7 @@ def map4biplot(
     """
     arrs_ = (arrs,) if isinstance(arrs, np.ndarray) else tuple(arrs)
     N_PLOTS = len(arrs_)
+    tags_ = (tags,) if isinstance(tags, Tag) else tags
 
     def setup(
         x: Any,
@@ -278,7 +280,7 @@ def map4biplot(
         'ylim': ylim,
         'xscale': xscale,
         'yscale': yscale,
-        'tags': tags,
+        'tags': tags_,
     }
     return dmap
 
