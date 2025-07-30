@@ -29,6 +29,7 @@ RCPARAMS = {
     'font.weight': 'bold',
     'xtick.labelsize': 12,
     'ytick.labelsize': 12,
+    'axes.formatter.limits': (-3, 3),
 }
 mpl.rcParams.update(RCPARAMS)
 
@@ -50,7 +51,6 @@ PLOTPARAMS = {
     'ticks_w': 2,
     'ticks_len_major': 7,
     'ticks_len_minor': 4,
-    'ticks_scilim': (-3, 4),
     # colorbar
     'cbar_origin': 'lower',
     'cbar_shrink': 0.75,
@@ -69,15 +69,19 @@ PLOTPARAMS = {
     'scatter_lw': 1.5,
 }
 
-def _config_subplots(nplots: int) -> tuple[Figure, Axes | list[Axes]]:
+def _config_subplots(
+    nplots: int,
+    *,
+    size: int | float = PLOTPARAMS['size'],
+    dpi: int | float = PLOTPARAMS['dpi'],
+) -> tuple[Figure, Axes | list[Axes]]:
     """Creates and configures subplots."""
-    size = PLOTPARAMS['size']
     fig_size = (size * nplots + 1, size) if nplots > 1 else (size, size)
     fig, axs = plt.subplots(1, nplots, figsize=fig_size)
+    fig.dpi = dpi
     fig.tight_layout()
-    fig.dpi = PLOTPARAMS['dpi']
     fig.subplots_adjust(wspace=PLOTPARAMS['spacing'] / size)
-    return fig, (axs if nplots > 1 else [axs])
+    return fig, axs
 
 def _config_labels(ax: Axes, xlabel: str | None, ylabel: str | None, title: str) -> None:
     """Configures labels and titles."""
@@ -104,18 +108,24 @@ def _config_ticks(ax: Axes) -> None:
         which='both', direction='in', width=PLOTPARAMS['ticks_w'],
         length=PLOTPARAMS['ticks_len_major'] if 'major' else PLOTPARAMS['ticks_len_minor'],
     )
-    ax.ticklabel_format(scilimits=PLOTPARAMS['ticks_scilim'])
 
-def _config_view(
+def _config_axscale(
     ax: Axes,
-    xlim: tuple[Any, Any],
-    ylim: tuple[Any, Any],
     xscale: str,
     yscale: str,
 ) -> None:
-    """Configures axes limits and scales."""
-    ax.set_xlim(*xlim); ax.set_ylim(*ylim)
-    ax.set_xscale(xscale); ax.set_yscale(yscale)
+    """Configures axes scales."""
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+
+def _config_axlim(
+    ax: Axes,
+    xlim: tuple[Any, Any],
+    ylim: tuple[Any, Any],
+) -> None:
+    """Configures axes values limits."""
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
 
 """                               
                                              █████████████                     
@@ -324,6 +334,7 @@ def biplot(
     for ax, dmap in zip(axs, (dmap_A, dmap_B)):
         _config_labels(ax, dmap['xlabel'], dmap['ylabel'], dmap['title'])
         _config_ticks(ax)
+        _config_axscale(ax, dmap['xscale'], dmap['yscale'])
         
         for idx, arr in enumerate(dmap['arrs']):
             match dmap['style'][idx]:
@@ -353,9 +364,7 @@ def biplot(
                     x, y, name, color=PLOTPARAMS['txt_color'],
                     fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
                 )
-        _config_view(
-            ax, dmap['xlim'], dmap['ylim'], dmap['xscale'], dmap['yscale'],
-        )
+        _config_axlim(ax, dmap['xlim'], dmap['ylim'])
         if any(dmap['labels']): ax.legend(loc='best')
     
     if save_to is not None: plt.savefig(save_to)
@@ -397,6 +406,7 @@ def distr_plot(
     fig, ax = _config_subplots(1)
     _config_labels(ax, xlabel, 'density', title)
     _config_ticks(ax)
+    _config_axscale(ax, 'linear', 'linear')
     ax.hist(
         arr_, bins=bins, density=True, alpha=PLOTPARAMS['alpha'], **hist_kwargs,
     )
@@ -405,7 +415,7 @@ def distr_plot(
             np.arange(len(pdf_distr[1])), pdf_distr[1], color='OrangeRed', label=f'{pdf_distr[0]}',
         )
         ax.legend(loc='best')
-    _config_view(ax, xlim, (None, None), 'linear', 'linear')
+    _config_axlim(ax, xlim, (None, None))
     plt.show()
 
 
@@ -431,7 +441,7 @@ def image_plot(
         cbarloc (str, optional (default=`'right'`)): Location of the colorbar.
         **img_kwargs (Any): Keyword arguments passed to `matplotlib.pyplot.imshow`.
     """
-    fig, ax = _config_subplots(1)
+    fig, ax = _config_subplots(1, dpi=110)
     _config_labels(ax, xlabel, ylabel, title)
     _config_ticks(ax)
     img = ax.imshow(arr, origin=PLOTPARAMS['cbar_origin'], **img_kwargs)
@@ -489,6 +499,10 @@ def slices_plot(
         **kwargs (Any):
             Additional keyword arguments for the `biplot` function.
     """
+    colors_ = (
+        'OrangeRed', 'DodgerBlue', 'Lawngreen', 'm'
+    )
+
     def phase(x: NDArray) -> NDArray:
         """Centers x-axis values around zero."""
         return np.arange(len(x)) - len(x) // 2
@@ -513,6 +527,7 @@ def slices_plot(
             ylabel=ylabel or 'counts [ph]',
             labels=labels,
             x=map(phase, xslice),
+            color=colors_,
             ylim=ylim_xslice or (None, None),
         ),
         dmap_B=map4biplot(
@@ -522,6 +537,7 @@ def slices_plot(
             ylabel=ylabel or 'counts [ph]',
             labels=labels,
             x=map(phase, yslice),
+            color=colors_,
             ylim=ylim_yslice or (None, None),
         ),
         **kwargs,
@@ -640,8 +656,8 @@ def skyfield_map(
     camera: CodedMaskCamera,
     *,
     show_IDs: bool = True,
-    show_coords: bool = True,
-    show_errbox: bool = True,
+    show_coords: bool = False,
+    show_errbox: bool = False,
 ) -> None:
     """
     Displays the reconstructed sources in the sky-grid, optionally
@@ -654,9 +670,9 @@ def skyfield_map(
             CodedMaskCamera instance with binning info.
         show_IDs (bool, optional (default=`True`)):
             If `True`, the source IDs are shown in the plot.
-        show_coords (bool, optional (default=`True`)):
+        show_coords (bool, optional (default=`False`)):
             If `True`, the RA/Dec coords are shown in the plot.
-        show_errbox (bool, optional (default=`True`)):
+        show_errbox (bool, optional (default=`False`)):
             If `True`, the source pos errorboxes are displayed.
     """
     skyx, skyy = camera.bins_sky
@@ -675,6 +691,7 @@ def skyfield_map(
         'color': 'k',
         'txt_color': 'white',
         'errbox_color': 'OrangeRed',
+        'alpha': 0.5,
 
         'xline': ((skyx[0], skyx[-1]), (0, 0)),
         'yline': ((0, 0), (skyy[0], skyy[-1])),
@@ -683,11 +700,9 @@ def skyfield_map(
         'ylim': (skyy[0], skyy[-1]),
     }
 
-    fig, ax = _config_subplots(1)
+    fig, ax = _config_subplots(1, size=8, dpi=100)
     _config_labels(ax, SETUP['xlabel'], SETUP['ylabel'], SETUP['title'])
     _config_ticks(ax)
-    ax.set_xlim(SETUP['xlim'])
-    ax.set_ylim(SETUP['ylim'])
 
     # plot bkg and axis lines
     ax.add_patch(
@@ -701,8 +716,8 @@ def skyfield_map(
     
     # plot sources on grid
     ax.scatter(
-        log.log[SETUP['x']], log.log[SETUP['y']], color='LawnGreen',
-        marker='+', alpha=PLOTPARAMS['alpha'], s=15, label='sources',
+        log.log[SETUP['x']], log.log[SETUP['y']], c=None,
+        edgecolor='LawnGreen', alpha=SETUP['alpha'], s=10,
     )
     if any((show_IDs, show_coords, show_errbox)):
         for name, x, dx, y, dy, ra, dec in zip(
@@ -732,7 +747,7 @@ def skyfield_map(
                     )
                 )
 
-    ax.legend(loc='best')
+    _config_axlim(ax, SETUP['xlim'], SETUP['ylim'])
     plt.show()
 
 
