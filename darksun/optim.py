@@ -279,7 +279,7 @@ def iros(
         snrs = compute_snratios(skies, variances)
         candidates = find_candidates(skies, snrs)
         if not candidates:
-            print("No candidates left...")
+            print("\nNo candidates left...")
             break
         try:
             sources, skies = zip(*(subtract(index, sky, snr) for index, sky, snr in zip(candidates, skies, snrs)))
