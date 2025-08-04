@@ -97,7 +97,7 @@ def source_filter(
     Returns:
         output (FITS_rec): Output filtered data container.
     
-    Notes:
+    ## Notes:
         - `n` follows the std Python indexing rules.
     """
     sorted_rec = np.sort(data, order="NPHOTONS")[::-1]

@@ -209,6 +209,8 @@ def map4biplot(
         color (str | tuple[str, str] | Sequence[str | tuple[str, str]] | None, optional (default=`None`)):
             The color for the data series. A single color string (e.g., 'blue') applies to
             all series. A sequence of color strings styles each series individually.
+            For 'scatter' plots, it is possible to insert a tuple to specify the facecolor
+            and the edgecolor of the points (e.g., ('SkyBlue', 'DodgerBlue')).
         xlim (tuple[Any, Any], optional (default=`tuple(None, None)`)):
             A tuple `(min, max)` setting the limits for the x-axis.
             This setting applies to the entire plot.
@@ -588,7 +590,7 @@ def reconstruction_plot(
         psfy (bool, optional (default=`True`)):
             Simulates detector reconstruction effects.
     
-    Notes:
+    ## Notes:
         - A copy of `true_sky` is used to avoid memory overwrite.
     """
     true_sky_ = true_sky.copy()

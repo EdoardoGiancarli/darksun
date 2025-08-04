@@ -100,7 +100,7 @@ def iros(
         ValueError: If cameras are not oriented orthogonally (90° rotation in azimuth)
         RuntimeError: If source parameter optimization fails (with detailed error message)
 
-    Notes:
+    ## Notes:
         Performance Considerations:
         - Computation scales with mask resolution. Keep upscaling factors low
           (upscale_x * upscale_y ~< 10) for reasonable performance

@@ -44,7 +44,7 @@ def upscale(
     Raises:
         ValueError: If upscale factors are not positive integers.
     
-    Notes:
+    ## Notes:
         - The array total sum is conserved through linear interpolation.
         - For N-dim arrays, consider using Astropy's `block_replicate()`.
     """
@@ -89,7 +89,7 @@ def downscale(
     Raises:
         ValueError: If downscale factors are not positive integers.
     
-    Notes:
+    ## Notes:
         - The downsampling is performed through blocks subdivision, which
           represent the elements of the downsampled array. Each block is
           reduced by adding its elements for linear interpolation.
@@ -165,7 +165,7 @@ def crop(
         IndexError: If `crp` wrt indexes exceeds 2D array edges
                     (only if `strict` is `True`).
     
-    Notes:
+    ## Notes:
         - Negative indexes for `pos` are allowed.
     """
     n, m = image.shape
@@ -224,7 +224,7 @@ def make_sky(
     Raises:
         ValueError: If `background` has an invalid shape.
     
-    Notes:
+    ## Notes:
         - The input database must contain at least the sources (i) sky
           coords shifts in [mm] wrt the camera optical axis; (ii) their
           fluences [ph] and (iii) the px indexes.
@@ -309,7 +309,7 @@ def WFM_composition(
             - wcs (WCS):
                 Output reprojected WCS fit.
 
-    Notes:
+    ## Notes:
         - If the WCS fit keys are not present in the camera skies headers,
           a TypeError will be raised from `find_optimal_celestial_wcs()`:
         >>> TypeError: "WCS does not have celestial components."
