@@ -203,7 +203,7 @@ def map4biplot(
             for each array. If a single array is provided, it's used for all data series. A
             sequence of arrays can be used to specify x-values for each data series.
         style (str | Sequence[str] | None, optional (default=`None`)):
-            The plotting style ('plot', 'scatter', 'bar'). A single string applies the same
+            The plotting style ('plot', 'scatter', 'stairs'). A single string applies the same
             style to all series. A sequence of strings applies a different style to each.
             If `None`, the style is initialised to 'plot' for all array entries.
         color (str | tuple[str, str] | Sequence[str | tuple[str, str]] | None, optional (default=`None`)):
@@ -321,7 +321,7 @@ def biplot(
             Additional arguments passed to plot func (e.g., `plt.plot()`).
     
     Raises:
-        ValueError: If plot style different from 'plot', 'scatter' or 'bar'.
+        ValueError: If plot style different from 'plot', 'scatter' or 'stairs'.
     
     Example:
         >>> # built maps from `map4biplot()`
@@ -355,8 +355,11 @@ def biplot(
                         alpha=PLOTPARAMS['alpha'], linewidths=PLOTPARAMS['scatter_lw'],
                         label=dmap['labels'][idx], **kwargs,
                     )
-                case 'bar':
-                    raise NotImplementedError
+                case 'stairs':
+                    ax.stairs(
+                        arr, edges=dmap['x'][idx], edgecolor=dmap['color'][idx],
+                        alpha=PLOTPARAMS['alpha'], label=dmap['labels'][idx], **kwargs,
+                    )
                 case _:
                     raise ValueError(
                         f"Invalid plot style '{dmap['style'][idx]}'. Must be 'plot', 'scatter' or 'bar'."
