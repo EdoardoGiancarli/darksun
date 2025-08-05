@@ -2,6 +2,7 @@
 Module for images processing.
 """
 
+from typing import Any
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +17,8 @@ from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.optim import model_sky
 
 __all__ = [
-    "upscale", "downscale", "crop",
-    "make_sky", "WFM_composition"
+    "upscale", "downscale", "crop", "unframe",
+    "make_sky", "WFM_composition",
 ]
 
 
@@ -192,6 +193,64 @@ def crop(
             raise IndexError(f"Cropping {crp} at pos {pos} exceeds array edges.")
     
     return image[y - cy : y + cy + 1, x - cx : x + cx + 1]
+
+
+def unframe(
+    data: NDArray,
+    unframe_y: int | tuple[int | None, int | None] | None = None,
+    unframe_x: int | tuple[int | None, int | None] | None = None,
+) -> NDArray:
+    """
+    Unframes a 2D array by returning a `sliced view` of the array
+    along the specified axis.
+
+    Args:
+        data (NDArray):
+            Input 2D array.
+        unframe_y (int | tuple[int | None, int | None] | None, optional (default=`None`)):
+            Unframing factor over the y axis (rows).
+            * If `int`, crops symetrically: `data[y:-y, :]`;
+            * If `tuple(start, stop)`, crops asymetrically: `data[start : stop, :]`;
+            * `None` in the tuple means no crop on that edge.
+        unframe_x (int | tuple[int | None, int | None] | None, optional (default=`None`)):
+            Unframing factor over the x axis (columns), same behavior as `unframe_y`.
+
+    Returns:
+        output (NDArray): View of the unframed array.
+    
+    Raises:
+        TypeError: If unframe factors are not positive integers.
+    
+    Examples:
+        >>> a = np.ones((10, 10))
+        ...
+        >>> b = unframe(a)              # same as 'a', shape: (10, 10)
+        >>> c = unframe(a, 2)           # same as a[2:-2, :], shape: (6, 10)
+        >>> d = unframe(a, 2, 3)        # same as a[2:-2, 3:-3], shape: (6, 4)
+        >>> e = unframe(a, (2, None))   # same as a[2:, :], shape: (8, 10)
+        >>> f = unframe(a, (None, -2))  # same as a[:-2, :], shape: (8, 10)
+    """
+    unframe_f = (unframe_y, unframe_x)
+    if not any(unframe_f):
+        return data
+    
+    def config_slice(factor: Any) -> slice:
+        """Slice object config for array indexes."""
+        if factor is None:
+            return slice(None, None)
+        
+        if isinstance(factor, int):
+            i, j = (factor, -factor if factor != 0 else None)
+        elif isinstance(factor, tuple):
+            if any(isinstance(f, float) for f in factor):
+                raise TypeError("Unframe factors must be positive integers.")
+            i, j = factor
+        else:
+            raise TypeError("Unframe factors must be positive integers.")
+        
+        return slice(i, j)
+
+    return data[*tuple(map(config_slice, unframe_f))]
 
 
 def make_sky(
