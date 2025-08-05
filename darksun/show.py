@@ -362,7 +362,7 @@ def biplot(
                     )
                 case _:
                     raise ValueError(
-                        f"Invalid plot style '{dmap['style'][idx]}'. Must be 'plot', 'scatter' or 'bar'."
+                        f"Invalid plot style '{dmap['style'][idx]}'. Must be 'plot', 'scatter' or 'stairs'."
                     )
             
         if dmap['tags'] is not None:

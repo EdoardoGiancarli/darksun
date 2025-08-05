@@ -38,8 +38,9 @@ def bkg_smoothing(
     the detector sensitivity array zeroes to avoid boundary effects.
 
     The kernel has a default size along `(y, x)` of `(11 x 7)` at upscaling `(1, 1)`, equal
-    to a physical size of `(11 * 0.4, 7 * 0.25) mm` for the Wide Field Monitor cameras.
-    Inside the method, the kernel size is automatically adjusted to the camera upscaling. 
+    to a physical size of `(11 * camera.specs[mask_deltay], 7 * camera.specs[mask_deltax]) mm`
+    for the Wide Field Monitor cameras. Inside the method, the kernel size is automatically
+    adjusted to the camera upscaling.
 
     This smoothing should be applied after removing the brightest sources from the original
     detector image (e.g., by processing the observed sky with the IROS algorithm).
@@ -66,7 +67,6 @@ def bkg_smoothing(
         - CFR with url: [`bkg_fitting_v3.ipynb`](
         https://github.com/yuri-evangelista/CodedMasks/blob/main/notebooks/bkg_fitting_v3.ipynb
         ).
-        - The kernel size may change depending on the selected mask pattern design of the WFM.
     """
     # define median filter kernel size at given camera upscaling
     UPX, UPY = camera.upscale_f
