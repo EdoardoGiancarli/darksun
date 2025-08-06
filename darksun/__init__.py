@@ -38,6 +38,7 @@ from .handle import load_sky
 from .images import upscale
 from .images import downscale
 from .images import crop
+from .images import unframe
 from .images import make_sky
 from .images import WFM_composition
 
