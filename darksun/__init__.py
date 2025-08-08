@@ -15,8 +15,9 @@ __author__ = "Edoardo Giancarli"
 
 from .types import LogEntry
 from .types import Tag
+# from .types import Candidate               (when defined version)
 
-from .analyze import run_IROS
+# from .analyze import run_IROS              (when defined version)
 from .analyze import compute_parameters
 from .analyze import catalogue_comparison
 
@@ -41,6 +42,9 @@ from .images import crop
 from .images import unframe
 from .images import make_sky
 from .images import WFM_composition
+
+from .optim import bkg_smoothing
+#from .optim import iros                     (when defined version)
 
 from .show import map4biplot
 from .show import biplot

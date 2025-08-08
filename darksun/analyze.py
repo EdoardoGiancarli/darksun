@@ -7,7 +7,6 @@ from numpy.typing import NDArray
 from scipy.signal import convolve
 from pandas import DataFrame
 from astropy.io.fits.fitsrec import FITS_rec
-from tqdm import tqdm
 
 from bloodmoon.mask import _detector_footprint
 from bloodmoon.mask import CodedMaskCamera
@@ -15,7 +14,6 @@ from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import equatorial2shift
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
-from bloodmoon.coords import angle2shift
 from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
@@ -25,28 +23,24 @@ from .types import LogEntry
 from .data import DataLoader
 from .data import CatalogueLoader
 from .data import Log
-from .data import create_log
-from .optim import iros
 
 __all__ = [
-    "run_IROS", "compute_parameters",
-    "data_screening", "catalogue_comparison",
+    "run_IROS", "compute_parameters", "data_screening", "catalogue_comparison",
 ]
 
 
 def run_IROS(
-    *,
-    camera: CodedMaskCamera,
-    sdl_camA: DataLoader,
-    sdl_camB: DataLoader,
-    max_iterations: int = 25,
-    snr_threshold: int | float = 10,
-    vignetting: bool = True,
-    psfy: bool = True,
-    id_camA: str | None = None,
-    id_camB: str | None = None,
-) -> tuple[tuple[Log, Log], tuple[NDArray, NDArray]]:
+    *args,
+    **kwargs,
+) -> None:
     """
+    !!! As of now, the two `run_IROS` wrapper for the IROS pipeline have been
+        inserted in the two respective folder for the singleCAM and doubleCAM
+        based analyses.
+        * `IROS/doubleCAM_iros.py`,
+        * `singleCAM_IROS/singleCAM_iros.py`,
+
+
     Runs the IROS (Iterative Removal of Sources) loop and stores the output.
 
     This wrapper iteratively removes the detected sources candidates from the sky until
@@ -65,81 +59,12 @@ def run_IROS(
        fluence error is the square root of the fluence.
     
     Args:
-        camera (CodedMaskCamera):
-            CodedMaskCamera instance used for imaging and reconstruction.
-        sdl_camA (DataLoader):
-            DataLoader instance for camera A.
-        sdl_camB (DataLoader):
-            DataLoader instance for camera B.
-        max_iterations (int, optional (default=`25`)):
-            Maximum number of iterations for the IROS loop.
-        snr_threshold (int | float, optional (default=`5`)):
-            Minimum SNR value required to continue the iterative source removal process.
-        vignetting (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate vignetting.
-        psfy (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate detector
-            position reconstruction effects.
-        id_camA (str | None, optional (default=`None`)):
-            WFM camera A name (for the Log).
-        id_camB (str | None, optional (default=`None`)):
-            WFM camera B name (for the Log).
+        
 
     Returns:
-        output (tuple[tuple[Log, Log], tuple[NDArray, NDArray]]):
-            - logs (tuple[Log, Log]):
-                Camera `A` and `B` logs with metadata and results from IROS.
-            - residuals (tuple[NDArray, NDArray]):
-                Sky residuals for the WFM after IROS.
+        
     """
-    # coded-mask sensitivity along the (x, y) axis
-    # - TODO: insert correct camera sensitivity estimation (this is a proxy,
-    #         dthetax = 5 arcmin, dthetay = 60 arcmin at (upx, upy) = (1, 1))
-    UPX, UPY = camera.upscale_f
-    DTHETA_X = 5.0 / UPX / 60                  # [deg] PN: `/ 60` is for arcmin -> deg
-    DTHETA_Y = 60.0 / UPY / 60                 # [deg]
-    # errors for sky-coords shifts
-    DSX = abs(angle2shift(camera, DTHETA_X))   # [mm]
-    DSY = abs(angle2shift(camera, DTHETA_Y))   # [mm]
-
-    def callback(output: tuple[float]) -> tuple[float]:
-        """Manage IROS candidate output parameters."""
-        sx, sy, f, signf = output
-        df = np.sqrt(f)
-        return sx, DSX, sy, DSY, f, df, signf
-    
-    # generate IROS output log
-    params = (
-        LogEntry('shift_x', 'D', 'mm'), LogEntry('dshift_x', 'D', 'mm'),
-        LogEntry('shift_y', 'D', 'mm'), LogEntry('dshift_y', 'D', 'mm'),
-        LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
-        LogEntry('snr', 'D', ''),
-    )
-    log_camA = create_log(params, id_camA)
-    log_camB = create_log(params, id_camB)
-
-    # init and run IROS loop
-    print("# Initializing Loop...")
-    loop = iros(
-        camera=camera,
-        sdl_cam1a=sdl_camA,
-        sdl_cam1b=sdl_camB,
-        max_iterations=max_iterations,
-        snr_threshold=snr_threshold,
-        vignetting=vignetting,
-        psfy=psfy,
-    )
-    print("# Looping around the FOV...")
-    for candidates, residuals in tqdm(loop):
-        parA, parB = candidates
-        log_camA.update(
-            tuple((p.entry, val) for p, val in zip(params, callback(parA)))
-        )
-        log_camB.update(
-            tuple((p.entry, val) for p, val in zip(params, callback(parB)))
-        )
-    
-    return (log_camA, log_camB), residuals
+    raise NotImplementedError
 
 
 def compute_parameters(
@@ -295,7 +220,41 @@ def data_screening(
     column: str,
 ) -> DataFrame:
     """
-    
+    Groups the DataFrame rows by the `groupby` key and selects the
+    entry with the maximum value in the specified column.
+
+    The resulting DataFrame is sorted by its index. If there are
+    multiple rows with the same maximum value within a group,
+    `df.idxmax()` returns the index of the first occurrence.
+
+    Args:
+        data (DataFrame):
+            The input pandas DataFrame.
+        groupby (str):
+            The name of the column to group the DataFrame by.
+        column (str):
+            The name of the column for which to find the maximum
+            value within each group.
+
+    Returns:
+        output (DataFrame):
+            Filtered DataFrame containing only the rows with the maximum
+            value in the specified `column` for each group, sorted by index.
+
+    Examples:
+        >>> # assuming `df` as a pandas DataFrame
+        >>> df
+            category   value   other_data
+        0          A      10            x
+        1          A      25            y
+        2          B      15            z
+        3          B      30            w
+        4          A       5            p
+        ...
+        >>> data_screening(df, groupby='category', column='value')
+            category   value   other_data
+        1          A      25            y
+        3          B      30            w
     """
     return (
         data.loc[
