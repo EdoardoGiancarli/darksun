@@ -3,6 +3,7 @@ IROS output plotting.
 """
 
 from typing import Any, Sequence
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -38,7 +39,10 @@ mpl.rcParams.update(RCPARAMS)
 PLOTPARAMS = {
     # figure
     'size': 6,
-    'spacing': 1.25,
+    'wspacing_plot': 1.25,
+    'hspacing_plot': 1.25,
+    'wspacing_image': 1.25,
+    'hspacing_image': 0.5,
     'dpi': 200,
     # plot
     'title_pad': 8,
@@ -56,7 +60,8 @@ PLOTPARAMS = {
     # colorbar
     'cbar_origin': 'lower',
     'cbar_shrink': 0.75,
-    'cbar_pad': 0.05,
+    'cbar_pad_right': 0.03,
+    'cbar_pad_bottom': 0.1,
     'cbar_ticks_ls': 11,
     'cbar_label_fs': 12,
     'cbar_label_fw': 'bold',
@@ -71,63 +76,162 @@ PLOTPARAMS = {
     'scatter_lw': 1.5,
 }
 
-def _config_subplots(
-    nplots: int,
-    *,
-    size: int | float = PLOTPARAMS['size'],
-    dpi: int | float = PLOTPARAMS['dpi'],
-) -> tuple[Figure, Axes | list[Axes]]:
-    """Creates and configures subplots."""
-    fig_size = (size * nplots + 1, size) if nplots > 1 else (size, size)
-    fig, axs = plt.subplots(1, nplots, figsize=fig_size)
-    fig.dpi = dpi
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=PLOTPARAMS['spacing'] / size)
-    return fig, axs
 
-def _config_labels(ax: Axes, xlabel: str | None, ylabel: str | None, title: str) -> None:
-    """Configures labels and titles."""
-    ax.set_xlabel(
-        xlabel=xlabel or '', fontsize=PLOTPARAMS['label_fs'], fontweight=PLOTPARAMS['label_fw'],
-    )
-    ax.set_ylabel(
-        ylabel=ylabel or '', fontsize=PLOTPARAMS['label_fs'], fontweight=PLOTPARAMS['label_fw'],
-    )
-    ax.set_title(
-        label=title, fontsize=PLOTPARAMS['title_fs'],
-        pad=PLOTPARAMS['title_pad'], fontweight=PLOTPARAMS['label_fw'],
-    )
+class DSPlot:
+    """
+    Plot configuration for the `darksun` package.
+    This class initializes the Figure of the plot with the
+    style setup in the `darksun.show.py` module.
 
-def _config_ticks(ax: Axes) -> None:
-    """Configures grid and tick properties."""
-    ax.grid(
-        visible=True, color=PLOTPARAMS['grid_color'], linestyle=PLOTPARAMS['grid_ls'],
-        linewidth=PLOTPARAMS['grid_lw'], alpha=PLOTPARAMS['grid_alpha'],
-    )
-    ax.xaxis.set_ticks_position('both')
-    ax.yaxis.set_ticks_position('both')
-    ax.tick_params(
-        which='both', direction='in', width=PLOTPARAMS['ticks_w'],
-        length=PLOTPARAMS['ticks_len_major'] if 'major' else PLOTPARAMS['ticks_len_minor'],
-    )
+    Args:
+        ncolumns (int):
+            Number of subplot columns for the Plot.
+        nrows (int):
+            Number of subplot rows for the Plot.
+    
+    Examples:
+        >>> # suppose to create a basic plot
+        >>> dsp = DSPlot(ncolumns=1, nrows=1)
+        >>> fig, ax = dsp.config_subplots()
+        >>> dsp.config_labels(ax, title, None, None)
+        >>> dsp.config_ticks(ax)
+        >>> ...                              # plot func here
+        >>> plt.show()
+    """
+    def __init__(
+        self,
+        ncolumns: int,
+        nrows: int,
+    ) -> None:
+        self.ncols = ncolumns
+        self.nrows = nrows
+    
+    def config_subplots(
+        self,
+        *,
+        size: int | float = PLOTPARAMS['size'],
+        dpi: int | float = PLOTPARAMS['dpi'],
+        ptype: str = 'plot',
+    ) -> tuple[Figure, Axes | NDArray]:
+        """
+        Creates and configures subplots.
+        Default keys are specified in the setup map in `darksun.show.py`.
 
-def _config_axscale(
-    ax: Axes,
-    xscale: str,
-    yscale: str,
-) -> None:
-    """Configures axes scales."""
-    ax.set_xscale(xscale)
-    ax.set_yscale(yscale)
+        Args:
+            size (int | float, optional (default=PLOTPARAMS['size'])):
+                Figure size for one plot. If multiple rows/cols, the size
+                is automathically adjusted to the number of subplots.
+            dpi (int | float, optional (default=PLOTPARAMS['dpi'])):
+                Figure DPI value.
+            ptype (str, optional (default='plot')):
+                Subplots plot type, can be 'plot' for plots or 'image'
+                for images plotting (e.g., see `plot()` and `image_plot()`
+                in the `darksun.show.py` module).
 
-def _config_axlim(
-    ax: Axes,
-    xlim: tuple[Any, Any],
-    ylim: tuple[Any, Any],
-) -> None:
-    """Configures axes values limits."""
-    ax.set_xlim(*xlim)
-    ax.set_ylim(*ylim)
+        Returns:
+            output (tuple[Figure, Axes | NDArray]):
+                Output from `plt.subplots()`, i.e. a Figure obj and a
+                Axes or array of Axes based on chosen cols and rows number.
+
+        Raises:
+            ValueError: If `ptype` is not 'plot' or 'image'.
+        """
+        if ptype not in ('plot', 'image'):
+            raise ValueError(
+                f"Invalid 'ptype'={ptype}. Must be 'plot' for plots or 'image' for images."
+            )
+        height, width = map(
+            lambda x: int(size * x + 1) if x > 1 else size,
+            (self.nrows, self.ncols),
+        )
+        fig, axs = plt.subplots(self.nrows, self.ncols, figsize=(width, height))
+        fig.dpi = dpi
+        fig.tight_layout()
+        fig.subplots_adjust(
+            wspace=PLOTPARAMS[f'wspacing_{ptype}'] / size,
+            hspace=PLOTPARAMS[f'hspacing_{ptype}'] / size,
+        )
+        return fig, axs
+
+    @staticmethod
+    def config_labels(
+        ax: Axes,
+        title: str | None,
+        xlabel: str | None,
+        ylabel: str | None,
+    ) -> None:
+        """
+        Configures labels and titles for the specified Axes.
+
+        Args:
+            ax (Axes): Plot Axes object to configure.
+            title (str | None): Plot title.
+            xlabel (str | None): Label for the x-axis.
+            ylabel (str | None): Label for the y-axis.
+        """
+        ax.set_title(
+            label=title or '', fontsize=PLOTPARAMS['title_fs'],
+            pad=PLOTPARAMS['title_pad'], fontweight=PLOTPARAMS['label_fw'],
+        )
+        ax.set_xlabel(
+            xlabel=xlabel or '', fontsize=PLOTPARAMS['label_fs'], fontweight=PLOTPARAMS['label_fw'],
+        )
+        ax.set_ylabel(
+            ylabel=ylabel or '', fontsize=PLOTPARAMS['label_fs'], fontweight=PLOTPARAMS['label_fw'],
+        )
+
+    @staticmethod
+    def config_ticks(ax: Axes) -> None:
+        """
+        Configures grid and tick properties for the specified Axes.
+
+        Args:
+            ax (Axes): Plot Axes object to configure.
+        """
+        ax.grid(
+            visible=True, color=PLOTPARAMS['grid_color'], linestyle=PLOTPARAMS['grid_ls'],
+            linewidth=PLOTPARAMS['grid_lw'], alpha=PLOTPARAMS['grid_alpha'],
+        )
+        ax.xaxis.set_ticks_position('both')
+        ax.yaxis.set_ticks_position('both')
+        ax.tick_params(
+            which='both', direction='in', width=PLOTPARAMS['ticks_w'],
+            length=PLOTPARAMS['ticks_len_major'] if 'major' else PLOTPARAMS['ticks_len_minor'],
+        )
+
+    @staticmethod
+    def config_axscale(
+        ax: Axes,
+        xscale: str,
+        yscale: str,
+    ) -> None:
+        """
+        Configures axes scales for the specified Axes.
+
+        Args:
+            ax (Axes): Plot Axes object to configure.
+            xscale (str): Plot scale for the x-axis.
+            yscale (str): Plot scale for the y-axis.
+        """
+        ax.set_xscale(xscale)
+        ax.set_yscale(yscale)
+
+    @staticmethod
+    def config_axlim(
+        ax: Axes,
+        xlim: tuple[Any, Any],
+        ylim: tuple[Any, Any],
+    ) -> None:
+        """
+        Configures axes values limits for the specified Axes.
+
+        Args:
+            ax (Axes): Plot Axes object to configure.
+            xlim (tuple[Any, Any]): Value limits for the x-axis.
+            ylim (tuple[Any, Any]): Value limits for the y-axis.
+        """
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
 
 """                               
                                              █████████████                     
@@ -161,7 +265,7 @@ def _config_axlim(
                     ████████████████████████████                        
 """
 
-def map4biplot(
+def map4plot(
     arrs: NDArray | Sequence[NDArray],
     title: str,
     *,
@@ -179,9 +283,9 @@ def map4biplot(
 ) -> dict[str, Any]:
     """
     Configures a dictionary with the specified info for plotting.
-    This method can be used to generate a map to give as input to `biplot`.
+    This method can be used to generate a map to give as input to `darksun.plot()`.
 
-    For parameters like `labels`, `style`, and `color`, you can provide a single value to
+    For parameters like `labels`, `style`, and `color`, it is possible to provide a single value to
     apply to all data series or a sequence of values to style each series individually.
     The function processes these inputs and returns them in a structured dictionary,
     ready for a plotting utility.
@@ -235,7 +339,7 @@ def map4biplot(
         >>> import numpy as np
         >>> arr1 = np.array([1, 2, 3])
         >>> # using default values
-        >>> params = map4biplot(
+        >>> params = map4plot(
         ...     arrs=[arr1, arr2],
         ...     title="My Plot",
         ... )
@@ -248,7 +352,7 @@ def map4biplot(
         >>> import numpy as np
         >>> arrs = (np.array([1, 2, 3]), np.array([3, 2, 1]))
         >>> # using single values for style and label
-        >>> params = map4biplot(
+        >>> params = map4plot(
         ...     arrs=arrs,
         ...     title="My Plot",
         ...     labels="Series",
@@ -299,22 +403,26 @@ def map4biplot(
     return dmap
 
 
-def biplot(
-    dmap_A: dict[str, Any],
-    dmap_B: dict[str, Any],
+def plot(
+    dmaps: dict[str, Any] | Sequence[dict[str, Any]],
+    *,
+    ncols: int = 1,
+    nrows: int = 1,
     save_to: str | Path | None = None,
     **kwargs: Any,
 ) -> None:
     """
-    Displays a figure with two subplots by taking the info stored
-    in the two dictionaries in input. The two maps must have the
-    structure described in `map4biplot()`.
+    Displays a figure with the specified subplots by taking the info stored in the
+    dictionaries in input. The maps must have the structure described in `map4plot()`.
+    Each subplot displays a plot with the sequences in the respective dmap.
 
     Args:
-        dmap_A (dict[str, Any]):
-            Dictionary with the info for the first subplot.
-        dmap_B (dict[str, Any]):
-            Dictionary with the info for the second subplot.
+        dmaps (dict[str, Any] | Sequence[dict[str, Any]]):
+            Dictionary with the info for the plots.
+        ncols (int, optional (default=`1`)):
+            Number of columns to insert in the plot.
+        nrows (int, optional (default=`1`)):
+            Number of rows to insert in the plot.
         save_to (str | Path | None, optional (default=`None`)):
             Path to save the figure.
         **kwargs (Any):
@@ -324,21 +432,36 @@ def biplot(
         ValueError: If plot style different from 'plot', 'scatter' or 'stairs'.
     
     Example:
-        >>> # built maps from `map4biplot()`
-        >>> dmap1 = map4biplot(
+        >>> # build maps from `map4plot()`
+        >>> dmap1 = map4plot(
         ...     ...,
         ... )
-        >>> dmap2 = map4biplot(
+        >>> dmap2 = map4plot(
         ...     ...,
         ... )
         >>> # plot maps
-        >>> biplot(dmap1, dmap2)
+        >>> plot(dmap1)                           # single plot
+        >>> plot(dmaps=(dmap1, dmap2), ncols=2)   # double plot on two cols
+        >>> plot(dmaps=(dmap1, dmap2), nrows=2)   # double plot on two rows
+        >>> plot(dmaps=(...), ncols=2, nrows=2)   # plots on two cols and rows
     """
-    fig, axs = _config_subplots(2)
-    for ax, dmap in zip(axs, (dmap_A, dmap_B)):
-        _config_labels(ax, dmap['xlabel'], dmap['ylabel'], dmap['title'])
-        _config_ticks(ax)
-        _config_axscale(ax, dmap['xscale'], dmap['yscale'])
+    dsp = DSPlot(ncolumns=ncols, nrows=nrows)
+    fig, axs = dsp.config_subplots()
+    dmaps_ = (dmaps,) if isinstance(dmaps, dict) else dmaps
+    axs_ = (
+        (axs,) if isinstance(axs, Axes)
+        else axs.flatten() if (isinstance(axs, np.ndarray) and np.ndim(axs) > 1)
+        else axs
+    )
+    if (len(dmaps_) > np.prod((nrows, ncols))):
+        warnings.warn(
+            "To display all the input dmaps, select adequate values of 'ncols' or 'nrows'."
+        )
+
+    for ax, dmap in zip(axs_, dmaps_):
+        dsp.config_labels(ax, dmap['title'], dmap['xlabel'], dmap['ylabel'])
+        dsp.config_ticks(ax)
+        dsp.config_axscale(ax, dmap['xscale'], dmap['yscale'])
         
         for idx, arr in enumerate(dmap['arrs']):
             match dmap['style'][idx]:
@@ -371,7 +494,7 @@ def biplot(
                     x, y, name, color=PLOTPARAMS['txt_color'],
                     fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
                 )
-        _config_axlim(ax, dmap['xlim'], dmap['ylim'])
+        dsp.config_axlim(ax, dmap['xlim'], dmap['ylim'])
         if any(dmap['labels']): ax.legend(loc='best')
     
     if save_to is not None: fig.savefig(save_to)
@@ -410,13 +533,13 @@ def distr_plot(
             Path to save the figure.
         hist_kwargs (Any): Keyword arguments passed to `matplotlib.pyplot.hist`.
     """
-    arr_ = arr.copy()
-    if np.ndim(arr_) > 1: arr_ = arr_.reshape(-1)
+    if np.ndim(arr_) > 1: arr_ = arr.reshape(-1)
 
-    fig, ax = _config_subplots(1)
-    _config_labels(ax, xlabel, 'density', title)
-    _config_ticks(ax)
-    _config_axscale(ax, 'linear', 'linear')
+    dsp = DSPlot(1, 1)
+    fig, ax = dsp.config_subplots()
+    dsp.config_labels(ax, title, xlabel, 'density')
+    dsp.config_ticks(ax)
+    dsp.config_axscale(ax, 'linear', 'linear')
     ax.hist(
         arr_, bins=bins, density=True, alpha=PLOTPARAMS['alpha'], **hist_kwargs,
     )
@@ -425,47 +548,113 @@ def distr_plot(
             np.arange(len(pdf_distr[1])), pdf_distr[1], color='OrangeRed', label=f'{pdf_distr[0]}',
         )
         ax.legend(loc='best')
-    _config_axlim(ax, xlim, (None, None))
+    dsp.config_axlim(ax, xlim, (None, None))
     if save_to is not None: fig.savefig(save_to)
     plt.show()
 
 
-def image_plot(
-    arr: NDArray,
+def map4image(
+    img: NDArray,
     *,
-    title: str = None,
-    xlabel: str = None,
-    ylabel: str = None,
+    title: str | None = None,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
     cbarlabel: str = None,
     cbarloc: str = 'right',
-    save_to: str | Path | None = None,
-    **img_kwargs: Any,
-) -> None:
+    img_kwargs: dict[str, Any],
+) -> dict[str, Any]:
     """
-    Displays a 2D array as an image.
+    Configures a dictionary with the specified info for plotting a
+    2D array as image. This method can be used to generate a map to
+    give as input to `darksun.image_plot()`.
 
     Args:
-        arr (NDArray): 2D array to display.
-        title (str, optional (default=`None`)): Title for the plot.
-        xlabel (str, optional (default=`None`)): Label for the x-axis.
-        ylabel (str, optional (default=`None`)): Label for the y-axis.
-        cbarlabel (str, optional (default=`None`)): Label for the colorbar.
-        cbarloc (str, optional (default=`'right'`)): Location of the colorbar.
-        save_to (str | Path | None, optional (default=`None`)): Path to save the figure.
-        **img_kwargs (Any): Keyword arguments passed to `matplotlib.pyplot.imshow`.
+        img (NDArray):
+            2D array to display.
+        title (str, optional (default=`None`)):
+            Title for the plot.
+        xlabel (str, optional (default=`None`)):
+            Label for the x-axis.
+        ylabel (str, optional (default=`None`)):
+            Label for the y-axis.
+        cbarlabel (str, optional (default=`None`)):
+            Label for the colorbar.
+        cbarloc (str, optional (default=`'right'`)):
+            Location of the colorbar.
+        img_kwargs (dict[str, Any]):
+            Keyword arguments passed to `matplotlib.pyplot.imshow`.
     """
-    fig, ax = _config_subplots(1, dpi=110)
-    _config_labels(ax, xlabel, ylabel, title)
-    _config_ticks(ax)
-    img = ax.imshow(arr, origin=PLOTPARAMS['cbar_origin'], **img_kwargs)
-    cbar = fig.colorbar(
-        img, ax=ax, location=cbarloc, shrink=PLOTPARAMS['cbar_shrink'], pad=PLOTPARAMS['cbar_pad'],
+    dmap = {
+        'img': img,
+        'title': title,
+        'xlabel': xlabel,
+        'ylabel': ylabel,
+        'cbarlabel': cbarlabel,
+        'cbarloc': cbarloc,
+        'img_kwargs': img_kwargs,
+    }
+    return dmap
+
+
+def image_plot(
+    dmaps: dict[str, Any] | Sequence[dict[str, Any]],
+    *,
+    ncols: int = 1,
+    nrows: int = 1,
+    save_to: str | Path | None = None,
+) -> None:
+    """
+    Displays a figure with the specified subplots by taking the info stored in the
+    dictionaries in input. The maps must have the structure described in `map4image()`.
+    Each subplot displays a 2D array as image.
+
+    Args:
+        dmaps (dict[str, Any] | Sequence[dict[str, Any]]):
+            Dictionary with the info for the image plots.
+        ncols (int, optional (default=`1`)):
+            Number of columns to insert in the plot.
+        nrows (int, optional (default=`1`)):
+            Number of rows to insert in the plot.
+        save_to (str | Path | None, optional (default=`None`)):
+            Path to save the figure.ù
+    
+    Example:
+        >>> # build maps from `map4image()`
+        >>> dmap1 = map4image(
+        ...     ...,
+        ... )
+        >>> dmap2 = map4image(
+        ...     ...,
+        ... )
+        >>> # plot maps
+        >>> image_plot(dmap1)                           # single img
+        >>> image_plot(dmaps=(dmap1, dmap2), ncols=2)   # double img on two cols
+        >>> image_plot(dmaps=(dmap1, dmap2), nrows=2)   # double plot on two rows
+        >>> image_plot(dmaps=(...), ncols=2, nrows=2)   # imgs on two cols and rows
+    """
+    dsp = DSPlot(ncols, nrows)
+    fig, axs = dsp.config_subplots(dpi=110, ptype='image')
+    dmaps_ = (dmaps,) if isinstance(dmaps, dict) else dmaps
+    axs_ = (
+        (axs,) if isinstance(axs, Axes)
+        else axs.flatten() if (isinstance(axs, np.ndarray) and np.ndim(axs) > 1)
+        else axs
     )
-    cbar.ax.tick_params(labelsize=PLOTPARAMS['cbar_ticks_ls'])
-    cbar.formatter.set_powerlimits(PLOTPARAMS['cbar_scilim'])
-    if cbarlabel: cbar.set_label(
-        cbarlabel, fontsize=PLOTPARAMS['cbar_label_fs'], fontweight=PLOTPARAMS['cbar_label_fw'],
-    )
+
+    for ax, dmap in zip(axs_, dmaps_):
+        dsp.config_labels(ax, dmap['title'], dmap['xlabel'], dmap['ylabel'])
+        dsp.config_ticks(ax)
+        img = ax.imshow(dmap['img'], origin=PLOTPARAMS['cbar_origin'], **dmap['img_kwargs'])
+        cbar = fig.colorbar(
+            img, ax=ax, location=dmap['cbarloc'], shrink=PLOTPARAMS['cbar_shrink'],
+            pad=PLOTPARAMS[f'cbar_pad_{dmap['cbarloc']}'],
+        )
+        cbar.ax.tick_params(labelsize=PLOTPARAMS['cbar_ticks_ls'])
+        cbar.formatter.set_powerlimits(PLOTPARAMS['cbar_scilim'])
+        if dmap['cbarlabel']: cbar.set_label(
+            dmap['cbarlabel'], fontsize=PLOTPARAMS['cbar_label_fs'], fontweight=PLOTPARAMS['cbar_label_fw'],
+        )
+
     if save_to is not None: fig.savefig(save_to)
     plt.show()
 
@@ -514,7 +703,7 @@ def slices_plot(
         save_to (str | Path | None, optional (default=`None`)):
             Path to save the figure.
         **kwargs (Any):
-            Additional keyword arguments for the `biplot` function.
+            Additional keyword arguments for the `plot` function.
     """
     colors_ = (
         'OrangeRed', 'DodgerBlue', 'Lawngreen', 'm'
@@ -536,27 +725,30 @@ def slices_plot(
         lambda x: x.upper() if x else '',
         (source, cameraID),
     )
-    biplot(
-        dmap_A=map4biplot(
-            arrs=xslice,
-            title=f"{name} X-axis Slice {cam}",
-            xlabel='x [px]',
-            ylabel=ylabel or 'counts [ph]',
-            labels=labels,
-            x=map(phase, xslice),
-            color=colors_,
-            ylim=ylim_xslice or (None, None),
-        ),
-        dmap_B=map4biplot(
-            arrs=yslice,
-            title=f"{name} Y-axis Slice {cam}",
-            xlabel='y [px]',
-            ylabel=ylabel or 'counts [ph]',
-            labels=labels,
-            x=map(phase, yslice),
-            color=colors_,
-            ylim=ylim_yslice or (None, None),
-        ),
+
+    dmapx = map4plot(
+        arrs=xslice,
+        title=f"{name} X-axis Slice {cam}",
+        xlabel='x [px]',
+        ylabel=ylabel or 'counts [ph]',
+        labels=labels,
+        x=map(phase, xslice),
+        color=colors_,
+        ylim=ylim_xslice or (None, None),
+    )
+    dmapy = map4plot(
+        arrs=yslice,
+        title=f"{name} Y-axis Slice {cam}",
+        xlabel='y [px]',
+        ylabel=ylabel or 'counts [ph]',
+        labels=labels,
+        x=map(phase, yslice),
+        color=colors_,
+        ylim=ylim_yslice or (None, None),
+    )
+    plot(
+        dmaps=(dmapx, dmapy),
+        ncols=2,
         save_to=save_to,
         **kwargs,
     )
@@ -649,24 +841,19 @@ def reconstruction_plot(
             (true_sky_, modeled),
         )
         image_plot(
-            arr=upscale(true_crp - modeled_crp, F_UPY, F_UPX) * np.prod((F_UPY, F_UPX)),
-            title=f'True - IROS Residues {log.name}',
-            cbarlabel='counts',
-            cmap='bwr',
-            extent=(-CUT[1] * F_UPX, CUT[1] * F_UPX, -CUT[0] * F_UPY, CUT[0] * F_UPY),
+            dmaps=map4image(
+                img=upscale(true_crp - modeled_crp, F_UPY, F_UPX) * np.prod((F_UPY, F_UPX)),
+                title=f'True - IROS Residues {log.name}',
+                cbarlabel='counts',
+                img_kwargs={
+                    'cmap': 'bwr',
+                    'extent': (-CUT[1] * F_UPX, CUT[1] * F_UPX, -CUT[0] * F_UPY, CUT[0] * F_UPY),
+                },
+            ),
         )
 
         # remove source from True sky
         true_sky_ -= modeled
-
-
-def sky_plot(
-    *args, **kwargs,
-) -> None:
-    """
-    
-    """
-    raise NotImplementedError
 
 
 def skyfield_map(
@@ -721,9 +908,10 @@ def skyfield_map(
         'ylim': (skyy[0], skyy[-1]),
     }
 
-    fig, ax = _config_subplots(1, size=8, dpi=100)
-    _config_labels(ax, SETUP['xlabel'], SETUP['ylabel'], SETUP['title'])
-    _config_ticks(ax)
+    dsp = DSPlot(1, 1)
+    fig, ax = dsp.config_subplots(size=8, dpi=100)
+    dsp.config_labels(ax, SETUP['title'], SETUP['xlabel'], SETUP['ylabel'])
+    dsp.config_ticks(ax)
 
     # plot bkg and axis lines
     ax.add_patch(
@@ -768,7 +956,7 @@ def skyfield_map(
                     )
                 )
 
-    _config_axlim(ax, SETUP['xlim'], SETUP['ylim'])
+    dsp.config_axlim(ax, SETUP['xlim'], SETUP['ylim'])
     if save_to is not None: fig.savefig(save_to)
     plt.show()
 

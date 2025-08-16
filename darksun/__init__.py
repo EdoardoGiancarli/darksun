@@ -46,9 +46,10 @@ from .images import WFM_composition
 from .optim import bkg_smoothing
 #from .optim import iros                     (when defined version)
 
-from .show import map4biplot
-from .show import biplot
+from .show import map4plot
+from .show import plot
 from .show import distr_plot
+from .show import map4image
 from .show import image_plot
 from .show import slices_plot
 from .show import reconstruction_plot
