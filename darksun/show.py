@@ -867,7 +867,10 @@ def skyfield_map(
 ) -> None:
     """
     Displays the reconstructed sources in the sky-grid, optionally
-    specifying the IDs and the RA/Dec coordinates.
+    specifying the IDs, the RA/Dec coordinates and the shifts errors.
+
+    The input `log` container must have at least the sources camera
+    local-frame sky-shifts coords (in [mm]).
 
     Args:
         log (Log):
@@ -875,11 +878,14 @@ def skyfield_map(
         camera (CodedMaskCamera):
             CodedMaskCamera instance with binning info.
         show_IDs (bool, optional (default=`True`)):
-            If `True`, the source IDs are shown in the plot.
+            If `True`, the source IDs are shown in the plot
+            (the log must have the IDs entries stored inside).
         show_coords (bool, optional (default=`False`)):
-            If `True`, the RA/Dec coords are shown in the plot.
+            If `True`, the RA/Dec coords are shown in the plot
+            (the log must have the coords entries stored inside).
         show_errbox (bool, optional (default=`False`)):
-            If `True`, the source pos errorboxes are displayed.
+            If `True`, the source pos errorboxes are displayed
+            (the log must have the shifts errors stored inside).
         save_to (str | Path | None, optional (default=`None`)):
             Path to save the figure.
     """
@@ -929,32 +935,42 @@ def skyfield_map(
         edgecolor='LawnGreen', alpha=SETUP['alpha'], s=10,
     )
     if any((show_IDs, show_coords, show_errbox)):
-        for name, x, dx, y, dy, ra, dec in zip(
-            log.log['ID'],
-            log.log[SETUP['x']],
-            log.log[SETUP['err_x']],
-            log.log[SETUP['y']],
-            log.log[SETUP['err_y']],
-            log.log['ra'],
-            log.log['dec'],
-        ):
-            if show_coords:
-                ax.text(
-                    x - 18, y + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
-                    fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
-                )
             if show_IDs:
-                ax.text(
-                    x - 5, y - 5, name, color=SETUP['txt_color'],
-                    fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
-                )
-            if show_errbox:
-                ax.add_patch(
-                    Rectangle(
-                        xy=(x - dx, y - dy), width=2 * dx, height=2 * dy,
-                        linewidth=0.1, edgecolor=SETUP['errbox_color'], facecolor=None,
+                for name, x, y in zip(
+                    log.log['ID'],
+                    log.log[SETUP['x']],
+                    log.log[SETUP['y']],
+                ):
+                    ax.text(
+                        x - 5, y - 5, name, color=SETUP['txt_color'],
+                        fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
                     )
-                )
+            if show_coords:
+                for name, x, y, ra, dec in zip(
+                    log.log['ID'],
+                    log.log[SETUP['x']],
+                    log.log[SETUP['y']],
+                    log.log['ra'],
+                    log.log['dec'],
+                ):
+                    ax.text(
+                        x - 18, y + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
+                        fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                    )
+            if show_errbox:
+                for name, x, dx, y, dy in zip(
+                    log.log['ID'],
+                    log.log[SETUP['x']],
+                    log.log[SETUP['err_x']],
+                    log.log[SETUP['y']],
+                    log.log[SETUP['err_y']],
+                ):
+                    ax.add_patch(
+                        Rectangle(
+                            xy=(x - dx, y - dy), width=2 * dx, height=2 * dy,
+                            linewidth=0.1, edgecolor=SETUP['errbox_color'], facecolor=None,
+                        )
+                    )
 
     dsp.config_axlim(ax, SETUP['xlim'], SETUP['ylim'])
     if save_to is not None: fig.savefig(save_to)
