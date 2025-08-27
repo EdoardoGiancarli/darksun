@@ -219,7 +219,7 @@ def unframe(
         output (NDArray): View of the unframed array.
     
     Raises:
-        TypeError: If unframe factors are not positive integers.
+        TypeError: If unframe factors are not positive integers or a tuple of integers.
     
     Examples:
         >>> a = np.ones((10, 10))
@@ -243,10 +243,14 @@ def unframe(
             i, j = (factor, -factor if factor != 0 else None)
         elif isinstance(factor, tuple):
             if any(isinstance(f, float) for f in factor):
-                raise TypeError("Unframe factors must be positive integers.")
+                raise TypeError(
+                    "Unframe factors must be positive integers or a tuple of integers."
+                )
             i, j = factor
         else:
-            raise TypeError("Unframe factors must be positive integers.")
+            raise TypeError(
+                "Unframe factors must be positive integers or a tuple of integers."
+            )
         
         return slice(i, j)
 
