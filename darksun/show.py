@@ -344,7 +344,7 @@ def map4plot(
         ...     title="My Plot",
         ... )
         >>> print(params['title'])
-        >>> My Plot
+        >>> "My Plot"
         >>> print(params['labels'])
         >>> (None,)
         ...
@@ -359,7 +359,7 @@ def map4plot(
         ...     style="scatter"
         ... )
         >>> print(params['title'])
-        >>> My Plot
+        >>> "My Plot"
         >>> print(params['labels'])
         >>> ("Series", "Series")
         >>> print(params['color'])
