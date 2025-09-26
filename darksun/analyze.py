@@ -7,43 +7,40 @@ from numpy.typing import NDArray
 from scipy.signal import convolve
 from pandas import DataFrame
 from astropy.io.fits.fitsrec import FITS_rec
-from tqdm import tqdm
 
 from bloodmoon.mask import _detector_footprint
 from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.coords import shift2equatorial
+from bloodmoon.coords import equatorial2shift
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
 from bloodmoon.images import _shift
 from bloodmoon.images import _rbilinear
 from bloodmoon.optim import _wfm_psfy_kernel_cached
 from bloodmoon.optim import apply_vignetting
-from bloodmoon.optim import iros
 
 from .types import LogEntry
 from .data import DataLoader
 from .data import CatalogueLoader
 from .data import Log
-from .data import create_log
 
 __all__ = [
-    "run_IROS", "compute_parameters", "catalogue_comparison"
+    "run_IROS", "compute_parameters", "data_screening", "catalogue_comparison",
 ]
 
 
 def run_IROS(
-    camera: CodedMaskCamera,
-    *,
-    sdl_camA: DataLoader,
-    sdl_camB: DataLoader,
-    max_iterations: int = 25,
-    snr_threshold: int | float = 10,
-    vignetting: bool = True,
-    psfy: bool = True,
-    id_camA: str | None = None,
-    id_camB: str | None = None,
-) -> tuple[tuple[Log, Log], tuple[NDArray, NDArray]]:
+    *args,
+    **kwargs,
+) -> None:
     """
+    !!! As of now, the two `run_IROS` wrapper for the IROS pipeline have been
+        inserted in the two respective folder for the singleCAM and doubleCAM
+        based analyses.
+        * `IROS/doubleCAM_iros.py`,
+        * `singleCAM_IROS/singleCAM_iros.py`,
+
+
     Runs the IROS (Iterative Removal of Sources) loop and stores the output.
 
     This wrapper iteratively removes the detected sources candidates from the sky until
@@ -51,93 +48,36 @@ def run_IROS(
     At each iteration, two logs for the coded-mask cameras of the Wide Field Monitor
     are updated with the following candidates estimated parameters:
 
-        - shifts along the (x, y) axes with respective errors* in [mm]
-        - fluence and respective error, in [ph]
-        - extracted significance
-
-    *The shifts errors are assumed to be the half-bin size of the binning grid.
+        - camera local frame sky-coordinates shifts along the (x, y)
+          axes wrt the coded-mask camera optical axis, in [mm]*
+        - fluence, in [ph]**
+        - significance at the selection
+    
+    * The candidates shifts errors at upscaling `(x, y)=(1, 1)` are assumed to be
+      `5 arcmin` along x and `60 arcmin` along y.
+    ** The candidates fluence is assumed to follow a Poissonian statistics, so the
+       fluence error is the square root of the fluence.
     
     Args:
-        camera (CodedMaskCamera):
-            CodedMaskCamera instance used for imaging and reconstruction.
-        sdl_camA (DataLoader):
-            DataLoader instance for camera A.
-        sdl_camB (DataLoader):
-            DataLoader instance for camera B.
-        max_iterations (int, optional (default=`25`)):
-            Maximum number of iterations for the IROS loop.
-        snr_threshold (int | float, optional (default=`5`)):
-            Minimum SNR value required to continue the iterative source removal process.
-        vignetting (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate vignetting.
-        psfy (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate detector
-            position reconstruction effects.
-        id_camA (str | None, optional (default=`None`)):
-            WFM camera A name (for the Log).
-        id_camB (str | None, optional (default=`None`)):
-            WFM camera B name (for the Log).
+        
 
     Returns:
-        output (tuple[tuple[Log, Log], tuple[NDArray, NDArray]]):
-            - logs (tuple[Log, Log]): WFM databases with metadata and results from IROS.
-            - residuals (tuple[NDArray, NDArray]): Sky residuals for the WFM after IROS.
-    """
-    # shifts errors along x and y in [mm]
-    dsx = 0.5 * abs(camera.bins_sky.x[0] - camera.bins_sky.x[1])
-    dsy = 0.5 * abs(camera.bins_sky.y[0] - camera.bins_sky.y[1])
-
-    def callback(output: tuple[float]) -> tuple[float]:
-        """Manage IROS candidate output parameters."""
-        sx, sy, f, signf = output
-        df = np.sqrt(f)
-        return sx, dsx, sy, dsy, f, df, signf
         
-    # generate IROS output log
-    params = (
-        LogEntry('shiftx', 'D', 'mm'), LogEntry('dshiftx', 'D', 'mm'),
-        LogEntry('shifty', 'D', 'mm'), LogEntry('dshifty', 'D', 'mm'),
-        LogEntry('fluence', 'D', 'ph'), LogEntry('dfluence', 'D', 'ph'),
-        LogEntry('snr', 'D', ''),
-    )
-    log_camA = create_log(params, id_camA)
-    log_camB = create_log(params, id_camB)
-
-    # init and run IROS loop
-    print("# Initializing Loop...")
-    loop = iros(
-        camera=camera,
-        sdl_cam1a=sdl_camA,
-        sdl_cam1b=sdl_camB,
-        max_iterations=max_iterations,
-        snr_threshold=snr_threshold,
-        vignetting=vignetting,
-        psfy=psfy,
-    )
-    print("# Looping around the FOV...")
-    for candidates, residuals in tqdm(loop):
-        parA, parB = candidates
-
-        log_camA.update(
-            values=tuple((p.entry, val) for p, val in zip(params, callback(parA)))
-        )
-        log_camB.update(
-            values=tuple((p.entry, val) for p, val in zip(params, callback(parB)))
-        )
-    
-    return (log_camA, log_camB), residuals
+    """
+    raise NotImplementedError
 
 
 def compute_parameters(
     log: Log,
     camera: CodedMaskCamera,
     sdl: DataLoader,
+    *,
     vignetting: bool = True,
     psfy: bool = True,
 ) -> Log:
     """
     Computes parameters for IROS reconstructed candidates.
-    The input Log is updated with the following parameters:
+    The input WFM camera Log is updated with the following parameters:
 
         - candidates image pixel indexes
         - WFM camera local frame (x, y) angular coordinates and errors, in [deg]
@@ -152,64 +92,55 @@ def compute_parameters(
             CodedMaskCamera instance used for imaging and reconstruction.
         sdl (DataLoader):
             Data container instance for chosen WFM coded-mask camera.
+        vignetting (bool, optional (default=`True`)):
+            If `True`, the model used for optimization will simulate vignetting.
+        psfy (bool, optional (default=`True`)):
+            If `True`, the model used for optimization will simulate detector
+            position reconstruction effects.
 
     Returns:
         output (Log):
             Log instance with computed parameters for each candidate.
     """
     # retrieve observation data (px area [cm^2], camera exposure [s])
-    ups = np.prod(camera.upscale_f)
-    px_area = (
-        1e-2 * camera.specs["mask_deltax"] * camera.specs["mask_deltay"] / ups
+    UPX, UPY = camera.upscale_f
+    PX_AREA = (
+        1e-2 * camera.specs["mask_deltax"] * camera.specs["mask_deltay"] / np.prod((UPX, UPY))
     )
-    exposure = sdl.header["EXPOSURE"]
+    EXPOSURE = sdl.header["EXPOSURE"]
+    
+    shifts_x, dshifts_x = log.log['shift_x'], log.log['dshift_x']
+    shifts_y, dshifts_y = log.log['shift_y'], log.log['dshift_y']
+    fluences, dfluences = log.log['fluence'], log.log['dfluence']
 
     # insert new entries
     params = (
         LogEntry('y', 'J', 'px'), LogEntry('x', 'J', 'px'),
-        LogEntry('anglex', 'D', 'deg'), LogEntry('danglex', 'D', 'deg'),
-        LogEntry('angley', 'D', 'deg'), LogEntry('dangley', 'D', 'deg'),
-        LogEntry('ra', 'D', 'deg'), LogEntry('dra', 'D', 'deg'),
-        LogEntry('dec', 'D', 'deg'), LogEntry('ddec', 'D', 'deg'),
+        LogEntry('angle_x', 'D', 'deg'), LogEntry('dangle_x', 'D', 'deg'),
+        LogEntry('angle_y', 'D', 'deg'), LogEntry('dangle_y', 'D', 'deg'),
+        LogEntry('ra', 'D', 'deg'), # LogEntry('dra', 'D', 'deg'),
+        LogEntry('dec', 'D', 'deg'), # LogEntry('ddec', 'D', 'deg'),
         LogEntry('rate', 'D', 'ph/s'), LogEntry('drate', 'D', 'ph/s'),
         LogEntry('flux', 'D', 'ph/cm2/s'), LogEntry('dflux', 'D', 'ph/cm2/s'),
     )
     log.insert(params)
 
-    shifts_x, dshifts_x = log.log['shiftx'], log.log['dshiftx']
-    shifts_y, dshifts_y = log.log['shifty'], log.log['dshifty']
-    fluences, dfluences = log.log['fluence'], log.log['dfluence']
-
-    def angle_error(shift: float, dshift: float) -> float:
-        """Computes camera angular coordinate error."""
-        top = shift2angle(camera, shift + dshift)
-        bottom = shift2angle(camera, shift - dshift)
-        return abs(top - bottom) / 4
-    
+    # helper functions
     def eq_coords_errors(
         shiftx: float, dshiftx: float,
         shifty: float, dshifty: float,
-        sdl: DataLoader,
     ) -> tuple[float, float]:
         """Computes RA/DEC source errors."""
-        r_ra, up_dec = shift2equatorial(
-            sdl, camera, shiftx + dshiftx, shifty + dshifty
-        )
-        l_ra, down_dec = shift2equatorial(
-            sdl, camera, shiftx - dshiftx, shifty - dshifty
-        )
-        return (
-            abs(l_ra - r_ra) / 4,
-            abs(up_dec - down_dec) / 4,
-        )
+        # TODO: compute errs from transform
+        raise NotImplementedError
     
-    def effective_area(sx: float, sy: float) -> float:
+    def effective_area(shiftx: float, shifty: float) -> float:
         """Computes detector area seen by the source."""
 
-        def process_mask(i: float, j: float) -> NDArray:
+        def process_mask(sx: float, sy: float) -> NDArray:
             """Process mask pattern."""
             mask_maybe_vignetted = apply_vignetting(
-                camera, camera.mask, i, j,
+                camera, camera.mask, sx, sy,
             ) if vignetting else camera.mask
             
             mask_maybe_vignetted_maybe_psfy = convolve(
@@ -219,7 +150,9 @@ def compute_parameters(
     
         n, m = camera.shape_sky
         proj = np.zeros(camera.shape_detector)
-        components = _rbilinear(sx, sy, camera.bins_sky.x, camera.bins_sky.y)
+        components = _rbilinear(
+            shiftx, shifty, camera.bins_sky.x, camera.bins_sky.y
+        )
         i_min, i_max, j_min, j_max = _detector_footprint(camera)
 
         for (c_i, c_j), weight in components.items():
@@ -229,52 +162,51 @@ def compute_parameters(
             proj += sg[i_min:i_max, j_min:j_max] * weight
         proj *= camera.bulk
 
-        return proj.sum() * px_area
+        return proj.sum() * PX_AREA
 
     # compute parameters
-    px_idxs = tuple(
-        shift2pos(camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y)
+    y, x = zip(
+        *tuple(shift2pos(camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
-    log.add_entry_values('y', [idx[0] for idx in px_idxs])
-    log.add_entry_values('x', [idx[1] for idx in px_idxs])
+    log.add_entry_values('y', list(y))
+    log.add_entry_values('x', list(x))
 
     thetas_x, thetas_y = map(
         lambda shifts: tuple(shift2angle(camera, s) for s in shifts),
         (shifts_x, shifts_y),
     )
     dthetas_x, dthetas_y = map(
-        lambda shifts, dshifts: tuple(angle_error(s, ds) for s, ds in zip(shifts, dshifts)),
-        (shifts_x, dshifts_x),
-        (shifts_y, dshifts_y),
+        lambda dshifts: tuple(abs(shift2angle(camera, ds)) for ds in dshifts),
+        (dshifts_x, dshifts_y),
     )
-    log.add_entry_values('anglex', list(thetas_x))
-    log.add_entry_values('angley', list(thetas_y))
-    log.add_entry_values('danglex', list(dthetas_x))
-    log.add_entry_values('dangley', list(dthetas_y))
+    log.add_entry_values('angle_x', list(thetas_x))
+    log.add_entry_values('angle_y', list(thetas_y))
+    log.add_entry_values('dangle_x', list(dthetas_x))
+    log.add_entry_values('dangle_y', list(dthetas_y))
 
-    coords = tuple(
-        shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y)
+    ras, decs = zip(
+        *tuple(shift2equatorial(sdl, camera, sx, sy) for sx, sy in zip(shifts_x, shifts_y))
     )
-    dcoords = tuple(
-        eq_coords_errors(sx, dsx, sy, dsy, sdl) for sx, dsx, sy, dsy in zip(
-            shifts_x, dshifts_x, shifts_y, dshifts_y,
-        )
-    )
-    log.add_entry_values('ra', [c.ra for c in coords])
-    log.add_entry_values('dec', [c.dec for c in coords])
-    log.add_entry_values('dra', [deq[0] for deq in dcoords])
-    log.add_entry_values('ddec', [deq[1] for deq in dcoords])
+    #dras, ddecs = zip(
+    #    *tuple(
+    #        eq_coords_errors() for _ in zip()
+    #    )
+    #)
+    log.add_entry_values('ra', list(ras))
+    log.add_entry_values('dec', list(decs))
+    #log.add_entry_values('dra', list(dras))
+    #log.add_entry_values('ddec', list(ddecs))
 
-    rates = [f / exposure for f in fluences]
-    drates = [df / exposure for df in dfluences]
+    rates = [f / EXPOSURE for f in fluences]
+    drates = [df / EXPOSURE for df in dfluences]
     log.add_entry_values('rate', rates)
     log.add_entry_values('drate', drates)
 
     fluxes = [
-        f / (effective_area(sx, sy) * exposure) for f, sx, sy in zip(fluences, shifts_x, shifts_y)
+        f / (effective_area(sx, sy) * EXPOSURE) for f, sx, sy in zip(fluences, shifts_x, shifts_y)
     ]
     dfluxes = [
-        df / (effective_area(sx, sy) * exposure) for df, sx, sy in zip(dfluences, shifts_x, shifts_y)
+        df / (effective_area(sx, sy) * EXPOSURE) for df, sx, sy in zip(dfluences, shifts_x, shifts_y)
     ]
     log.add_entry_values('flux', fluxes)
     log.add_entry_values('dflux', dfluxes)
@@ -282,87 +214,183 @@ def compute_parameters(
     return log
 
 
+def data_screening(
+    data: DataFrame,
+    groupby: str,
+    column: str,
+) -> DataFrame:
+    """
+    Groups the DataFrame rows by the `groupby` key and selects the
+    entry with the maximum value in the specified column.
+
+    The resulting DataFrame is sorted by its index. If there are
+    multiple rows with the same maximum value within a group,
+    `df.idxmax()` returns the index of the first occurrence.
+
+    Args:
+        data (DataFrame):
+            The input pandas DataFrame.
+        groupby (str):
+            The name of the column to group the DataFrame by.
+        column (str):
+            The name of the column for which to find the maximum
+            value within each group.
+
+    Returns:
+        output (DataFrame):
+            Filtered DataFrame containing only the rows with the maximum
+            value in the specified `column` for each group, sorted by index.
+
+    Examples:
+        >>> # assuming `df` as a pandas DataFrame
+        >>> df
+            category   value   other_data
+        0          A      10            x
+        1          A      25            y
+        2          B      15            z
+        3          B      30            w
+        4          A       5            p
+        ...
+        >>> data_screening(df, groupby='category', column='value')
+            category   value   other_data
+        1          A      25            y
+        3          B      30            w
+    """
+    return (
+        data.loc[
+            data.groupby(groupby)[column].idxmax()
+        ].sort_index()
+    )
+
+
 def catalogue_comparison(
     log: Log,
     catalogue: CatalogueLoader,
-) -> DataFrame:
+    sdl: DataLoader,
+    camera: CodedMaskCamera,
+    screening: bool = True,
+) -> Log:
     """
     Compares the reconstructed IROS data with the catalogue,
     associating the candidates with the known sources.
 
+    The association is performed by comparing the local frame sky-coords
+    `shifts` of the catalogue sources with the shifts and relative errorboxes
+    of the decoded candidates at `3` sigma level.
+    If no catalogue sources are found, the candidates are labeled as new
+    sources, with the respective WFM coded-mask camera ID.
+
     Args:
         log (Log):
-            IROS data output from `compute_parameters()`.
+            IROS data output.
         catalogue (CatalogueLoader):
             Catalogue data for the WFM coded-mask camera.
+        sdl (DataLoader):
+            Data container instance for chosen WFM coded-mask camera.
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance used for imaging and reconstruction.
+        screening (bool, optional (default=`True`)):
+            If `True`, the repeating sources in the database
+            are screened by significance comparison.
 
     Returns:
-        output (DataFrame):
-            Pandas DataFrame with the updated entries for the
-            input IROS candidates database, featuring sources
-            IDs and respective catalogues calibrated fluxes.
+        output (Log):
+            Log with the updated entries for the input IROS candidates,
+            featuring sources IDs and catalogues calibrated fluxes.
     """
+    def extend_catalogue(rec: FITS_rec) -> FITS_rec:
+        """Adds sources local frame angular coords to catalogue."""
+        from astropy.io.fits import Column, BinTableHDU
+        extended = [
+            Column(name=name, format=rec.columns[name].format, array=rec[name])
+            for name in rec.names
+        ]
+        ssx, ssy = zip(
+            *tuple(
+                equatorial2shift(sdl, camera, ra, dec) for ra, dec in zip(rec['RA'], rec['DEC'])
+            )
+        )
+        shifts = [
+            Column(name='SHIFT_X', format='D', array=np.array(ssx)),
+            Column(name='SHIFT_Y', format='D', array=np.array(ssy)),
+        ]
+        return BinTableHDU.from_columns(extended + shifts).data
+    
     # set up
-    fake_sources = ["gctr_diffuse"]
-    NEW_ID = 0
+    KEYMAP = {
+        'cxb_tag': 'gctr_diffuse',
+        'NEW_ID': 1,
+    }
+    DATABASE = extend_catalogue(catalogue.DLdata)
 
-    # update Log
-    params = (
-        LogEntry('ID', '20A', ''), LogEntry('calibr_flux', 'D', 'ph/cm2/s'),
-    )
-    log.insert(params)
-
-    def candidate_identification(
-        ra: float,
-        dra: float,
-        dec: float,
-        ddec: float,
-    ) -> str:
+    # catalogue comparison and sources association
+    def candidate_association(
+        shiftx: float,
+        dshiftx: float,
+        shifty: float,
+        dshifty: float,
+        sigma: int | float = 3,
+    ) -> tuple[str, float]:
         """Candidate association from catalogue."""
 
-        def closer_source(batch: FITS_rec) -> int:
-            """Returns closer catalogue source index."""
+        def closest_source(batch: FITS_rec) -> int:
+            """Returns candidate's closer catalogue source index."""
             arg = np.argmin(
-                np.square(batch["RA"] - ra) + np.square(batch["DEC"] - dec)
+                np.square(batch['SHIFT_X'] - shiftx) + np.square(batch['SHIFT_Y'] - shifty)
             )
+            return arg
+        
+        def brightest_source(batch: FITS_rec) -> int:
+            """Returns brightest catalogue source index within errorbox."""
+            arg = np.argmax(batch['FLUX'])
             return arg
     
         box = (
-            (ra - dra < catalogue.data['RA'] < ra + dra) &
-            (dec - ddec < catalogue.data['DEC'] < dec + ddec) &
-            (catalogue.data['ID'] not in fake_sources)                  # TODO: solve this bc surely doesn't work
+            (DATABASE['SHIFT_X'] > shiftx - sigma * dshiftx) &
+            (DATABASE['SHIFT_X'] < shiftx + sigma * dshiftx) &
+            (DATABASE['SHIFT_Y'] > shifty - sigma * dshifty) &
+            (DATABASE['SHIFT_Y'] < shifty + sigma * dshifty) &
+            (DATABASE['ID'] != KEYMAP['cxb_tag'])
         )
-        associated_batch = catalogue.data[box]
+        associated_batch = DATABASE[box]
 
-        if not associated_batch:
-            sourceID = f'lemx-{NEW_ID}'
-            NEW_ID += 1
-            return sourceID
+        if not any(associated_batch):
+            sourceID = f'lemx-{log.name.lower()}S{KEYMAP['NEW_ID']}'
+            flux = -1.0
+            KEYMAP['NEW_ID'] += 1
+        elif len(associated_batch) == 1:
+            sourceID = associated_batch['ID'][0]
+            flux = associated_batch['FLUX'][0]
         else:
-            arg = closer_source(associated_batch)
-            sourceID = associated_batch[arg]
-    
-    def sources_screening(df: DataFrame) -> DataFrame:
-        """Removes repeating sources based on significance."""
-        pass                                                            # TODO: implement this
+            arg = closest_source(associated_batch)
+            sourceID = associated_batch['ID'][arg]
+            flux = associated_batch['FLUX'][arg]
 
-    print("# Comparing with Catalogues...")
+        return sourceID, flux
+    
+    # update Log
+    params = (
+        LogEntry('ID', '20A', ''), LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
+    )
+    log.insert(params)
+
+    print("# Comparing with Catalogue...")
     # initial sources association
-    for ra, dra, dec, ddec in zip(
-        log.log["ra"],
-        log.log["dra"],
-        log.log["dec"],
-        log.log["ddec"],
+    for sx, dsx, sy, dsy in zip(
+        log.log['shift_x'], log.log['dshift_x'],
+        log.log['shift_y'], log.log['dshift_y'],
     ):
-        sourceID = candidate_identification(ra, dra, dec, ddec)
-        calibr_flux = catalogue.data[sourceID]['FLUX'] or -1
-        log.update(values=(('ID', sourceID), ('calibr_flux', calibr_flux)))
+        sourceID, flux = candidate_association(sx, dsx, sy, dsy)
+        log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
     
     # sources screening based on significance
-    df = sources_screening(log.to_dataframe())
+    if screening:
+        df = data_screening(log.to_dataframe(), 'ID', 'snr')
+        for col, series in df.items():
+            log.replace_entry_values(col, list(series))
 
     print("# Successful comparison!")
-    return df
+    return log
 
 
 # end

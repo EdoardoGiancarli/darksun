@@ -17,7 +17,6 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.signal import convolve
 
-from .coords import shift2pos
 from .images import _erosion
 from .images import _rbilinear
 from .images import _rbilinear_relative
@@ -109,11 +108,25 @@ def apply_vignetting(
     shift_x: float,
     shift_y: float,
 ) -> npt.NDArray:
-    """
+    r"""
     Apply vignetting effects to a shadowgram based on source position.
     Vignetting occurs when mask thickness causes partial shadowing at off-axis angles.
     This function models this effect by applying erosion operations in both x and y
     directions based on the source's angular displacement from the optical axis.
+    
+
+                                    <--------> MASK APERTURE
+
+                                  \       \  \ 
+                        ___________\       \  \____________
+                                   |\       \ |             MASK ELEMENT
+                        ___________| \       \|_____________
+                                      \       \  \ 
+                                       \       \  \ 
+                                        \       \  \ 
+                         ________________\_______\__\_________  DETECTOR
+                         <--------------->        <->
+                               SHIFT             EROSION
 
     Args:
         camera: CodedMaskCamera instance containing mask and detector geometry
@@ -135,17 +148,17 @@ def apply_vignetting(
 
     angle_x_rad = np.arctan(shift_x / camera.mdl["mask_detector_distance"])
     red_factor = camera.mdl["mask_thickness"] * np.tan(angle_x_rad)
-    # since the mask detector distance is assumed to be the distance between the
-    # detector top and the mask bottom, erosion shall cut on the right-side of the
+    # since the mask detector distance is defined as the distance between the
+    # detector top and the mask top, erosion shall cut on the left-side of the
     # shadowgram when sources have negative `angle_x_rad`.
-    # given the implementation of `erosion` we have presently to multiply `red_factor`
-    # by -1 to achieve a cut on the right direction.
-    # TODO: change `erosion` and its tests so that multiplying by -1 isn't needed
-    sg1 = _erosion(shadowgram, bins.x[1] - bins.x[0], -red_factor)
+    # if the mask detector distance was defined as the distance between the
+    # detector top and the mask bottom, erosion should have been applied to the
+    # right side, i.e. `red_factor` should be multiplied by -1.
+    sg1 = _erosion(shadowgram, bins.x[1] - bins.x[0], red_factor)
 
     angle_y_rad = np.arctan(shift_y / camera.mdl["mask_detector_distance"])
     red_factor = camera.mdl["mask_thickness"] * np.tan(angle_y_rad)
-    sg2 = _erosion(shadowgram.T, bins.y[1] - bins.y[0], -red_factor)
+    sg2 = _erosion(shadowgram.T, bins.y[1] - bins.y[0], red_factor)
     return sg1 * sg2.T
 
 
@@ -485,13 +498,14 @@ def _Loss(model_f: Callable) -> Callable:  # noqa
             - truth is the observed sky image
     """
 
-    def f(args: npt.NDArray, truth: npt.NDArray, camera: CodedMaskCamera) -> float:
+    def f(args: npt.NDArray, truth: npt.NDArray, pos: tuple[int, int], camera: CodedMaskCamera) -> float:
         """
         Compute MSE loss between model prediction and truth.
 
         Args:
             args: Array of [shift_x, shift_y, fluence] parameters to evaluate
             truth: Full observed sky image to compare against
+            pos: the (row, col) indexes of the slice center.
             camera: CodedMaskCamera instance containing geometry information
                     No need for this, but we take the parameter for compatibility with
                     optimization model interfaces.
@@ -499,9 +513,13 @@ def _Loss(model_f: Callable) -> Callable:  # noqa
         Returns:
             float: Mean Squared Error between model and truth in local window
         """
+        (min_i, max_i, min_j, max_j), _ = cutout(camera, pos, fx=3, fy=3)
         model = model_f(*args)
-        mae = np.mean(np.square(model - truth))
-        return float(mae)
+        residual = model - truth
+        mse = np.mean(
+            np.square(residual[min_i : max_i, min_j : max_j])
+        )
+        return float(mse)
 
     return f
 
@@ -515,14 +533,13 @@ def optimize(
     model: Literal["fast", "accurate"] = "fast",
 ) -> tuple[float, float, float]:
     """
-    Perform two-stage optimization to fit a point source model to sky image data.
+    Performs the optimization to fit a point source model to sky image data.
 
-    This function performs a two-stage optimization:
-    1. Coarse optimization of fluence only, keeping position fixed
-    2. Fine, simultaneous optimization of position and fluence.
-       This step is warm-started with the flux value inferred from the coarse step.
-
-    The process uses different model at each stage to balance speed and accuracy.
+    This function performs the optimization by simultaneously fit the candidate
+    position and fluence. The starting position is inferred by interpolating the
+    candidate shifts in an upscaled grid (9, 9), while the starting fluence is
+    represented by the counts at the candidate extracted pixel indexes.
+    The model is cached to balance speed and accuracy.
 
     Args:
         camera: CodedMaskCamera instance containing detector and mask parameters
@@ -541,49 +558,56 @@ def optimize(
         - Initial position is refined using interpolation
         - Bounds are set based on initial guess and physical constraints
     """
-    from bloodmoon.images import argmax
-
-    sx_start, sy_start = interpmax(camera, arg_sky, sky)  # pos2shift(camera, *argmax(sky))
-    fluence_start = sky.max()
-
-    # initialize the function to compute coarse, fluence-dependent shadowgram model.
-    # to reduce the number of cross-correlation the function is cached. it is our
-    # responsibility to clear cache, freeing memory, after we will be done with the
-    # the coarse fluence step.
-    model_fluence, model_fluence_clear = _ModelFluence(camera, vignetting, psfy)
-    loss = _Loss(model_fluence)
-    results = minimize(
-        lambda args: loss((sx_start, sy_start, args[0]), sky, camera),
-        x0=np.array((fluence_start,)),
-        method="L-BFGS-B",
-        bounds=[
-            (0.75 * fluence_start, 1.5 * fluence_start),
-        ],
-        options={
-            "maxiter": 10,
-            "ftol": 1e-4,
-        },
-    )
-    # we use the best fluence value as the initial value for the next step.
-    fluence = results.x[0]
-    # releases model cache memory.
-    model_fluence_clear()
-
-    # initialize the function to fine coarse, fluence and position dependent shadowgram model.
-    # this is slower to compute and requires more memory. again it leverages caches to reduce
-    # the number of cross-correlation computations, and it is our responsibility to free
-    # memory after we will be done.
+    # - initialize the function to fluence and position dependent shadowgram model.
+    # - it leverages caches to reduce the number of cross-correlation computations,
+    #   and it is our responsibility to free memory after we will be done.
     if model == "fast":
         model_shift_flux, model_shift_flux_clear = _ModelShiftFluence(camera, vignetting, psfy)
     elif model == "accurate":
         model_shift_flux, model_shift_flux_clear = _ModelShiftFluenceUncached(camera, vignetting, psfy)
     else:
         raise ValueError("Model value not supported. The `model` arguments should be `fast` or `accurate`.")
+    
 
+
+    _placeholder = {'peak': (0, 0)}   # TODO: temporary, to remove
+    def init_candidate_args(
+        pos: tuple[int, int],
+        sky: npt.NDArray,
+    ) -> tuple[float, float, float]:
+        """
+        """
+        from .images import argmax
+
+        box = 5
+        y, x = pos
+        _peak = argmax(
+            sky[y - box : y + box + 1, x - box : x + box + 1],
+        )
+        peak = (
+            y - (box - _peak[0]),
+            x - (box - _peak[1]),
+        )
+        _placeholder['peak'] = peak
+        sx_start, sy_start = interpmax(camera, peak, sky)
+        fluence_start = sky[*peak]
+        return sx_start, sy_start, fluence_start
+    
+
+    
+    #sx_start, sy_start = interpmax(camera, arg_sky, sky)
+    #fluence_start = sky[*arg_sky]
+    sx_start, sy_start, fluence_start = init_candidate_args(arg_sky, sky)
+    print(
+        f"\nFLUENCE START: {fluence_start}\n"
+        f"SHIFTS START: {sx_start, sy_start}\n"
+        f"{arg_sky=}, fluence arg_sky: {sky[*arg_sky]}\n"
+        f"{_placeholder['peak']=}\n"
+    )
     loss = _Loss(model_shift_flux)
     results = minimize(
-        lambda args: loss((args[0], args[1], args[2]), sky, camera),
-        x0=np.array((sx_start, sy_start, fluence)),
+        lambda args: loss((args[0], args[1], args[2]), sky, arg_sky, camera),
+        x0=np.array((sx_start, sy_start, fluence_start)),
         method="Nelder-Mead",
         bounds=[
             (
@@ -594,7 +618,7 @@ def optimize(
                 max(sy_start - camera.mdl["slit_deltay"], camera.bins_sky.y[0]),
                 min(sy_start + camera.mdl["slit_deltay"], camera.bins_sky.y[-1]),
             ),
-            (0.9 * fluence, 1.1 * fluence),
+            (0.9 * fluence_start, 1.1 * fluence_start),
         ],
         options={
             "xatol": 1e-6,
@@ -602,6 +626,13 @@ def optimize(
     )
     # store the final optimized positions and fluence.
     sx, sy, fluence = map(float, results.x[:3])
+    print(
+        f"FINAL OPTIMIZED FLUENCE: {fluence}\n"
+        f"FLUENCE GAIN: {(fluence - fluence_start) * 100 / fluence_start:.3f}%\n"
+        f"FINAL OPTIMIZED SHIFTS: {sx, sy}\n"
+        f"SHIFTX GAIN: {(sx - sx_start) * 100 / sx_start:.3f}%\n"
+        f"SHIFTY GAIN: {(sy - sy_start) * 100 / sy_start:.3f}%\n"
+    )
     # releases model cache memory.
     model_shift_flux_clear()
     return sx, sy, fluence
@@ -755,13 +786,13 @@ def iros(
                 return a, latest_b
         return tuple()
 
-    def init_get_arg(snrs: tuple, batchsize: int = 1000) -> Callable:
+    def init_get_arg(skies: tuple, snrs: tuple, batchsize: int = 1000) -> Callable:
         """This hides a reservoirs-batch mechanism for quickly selecting candidates,
         and initializes the data structures it relies on."""
         # we sort source directions by significance.
         # this is kind of costly because the sky arrays may be very large.
         # sorted directions are moved to a reservoir.
-        reservoirs = [np.argsort(snr, axis=None) for snr in snrs]
+        reservoirs = [np.argsort(sky, axis=None) for sky in skies]
 
         # integrating source intensities over aperture for all matrix elements is
         # computationally unfeasable. To avoid this, we execute this computation over small batches.
@@ -770,14 +801,14 @@ def iros(
         def slit_intensity():
             """Integrates source intensity over mask's aperture."""
             intensities = ([], [])
-            for int_, snr, batch in zip(
+            for int_, sky, batch in zip(
                 intensities,
-                snrs,
+                skies,
                 batches,
             ):
                 for arg in batch:
                     (min_i, max_i, min_j, max_j), _ = cutout(camera, arg)
-                    slit = snr[min_i:max_i, min_j:max_j]
+                    slit = sky[min_i:max_i, min_j:max_j]
                     int_.append(np.sum(slit))
             return intensities
 
@@ -785,7 +816,7 @@ def iros(
             """Fill the batches with sorted candidates"""
             for i, _ in enumerate(sdls):
                 tail, head = reservoirs[i][:-batchsize], reservoirs[i][-batchsize:]
-                batches[i] = np.array([np.unravel_index(id, snrs[i].shape) for id in head])
+                batches[i] = np.array([np.unravel_index(id, skies[i].shape) for id in head])
                 reservoirs[i] = tail
 
             # integrates over mask element aperture and sum between cameras
@@ -810,13 +841,13 @@ def iros(
             for i, _ in enumerate(sdls):
                 batches[i] = batches[i][:-1]
             return out
+        
+        return get if max(tuple(snr[*cand] for cand, snr in zip(get(), snrs))) > snr_threshold else lambda: None
 
-        return get if max(map(np.max, snrs)) > snr_threshold else lambda: None
-
-    def find_candidates(snrs: tuple, max_pending=6666) -> tuple:
+    def find_candidates(skies: tuple, snrs: tuple, max_pending=6666) -> tuple:
         """Returns candidate, compatible sources for the two cameras.
         Worst case complexity is O(n^2) but amortized costs are much smaller."""
-        get_arg = init_get_arg(snrs)
+        get_arg = init_get_arg(skies, snrs)
         pending = ([], [])
 
         while not (matches := match(pending)):
@@ -846,7 +877,7 @@ def iros(
         except Exception as e:
             raise RuntimeError(f"Optimization failed: {str(e)}") from e
 
-        significance = float(snr_map[*shift2pos(camera, shiftx, shifty)])
+        significance = float(snr_map[*arg])  # candidate significance at extraction pos
         model = model_sky(
             camera=camera,
             shift_x=shiftx,
@@ -874,7 +905,7 @@ def iros(
     skies = tuple(decode(camera, d) for d in detectors)
     for i in range(max_iterations):
         snrs = compute_snratios(skies, variances)
-        candidates = find_candidates(snrs)
+        candidates = find_candidates(skies, snrs)
         if not candidates:
             break
         try:

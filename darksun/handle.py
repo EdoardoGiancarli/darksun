@@ -11,9 +11,16 @@ from astropy.wcs import WCS
 import pickle
 
 from bloodmoon.io import _exists_valid
-from darksun.data import DataLoader
 
-__all__ = []
+from .types import LogEntry
+from .data import Log
+from .data import create_log
+from .data import DataLoader
+
+__all__ = [
+    "save_database", "save_sky", "save_pickle",
+    "load_database", "load_sky", "load_pickle",
+]
 
 
 def _make_column(
@@ -93,6 +100,53 @@ def _make_bintable(
            @@@@@@@@@@@@@@@   @@@@@@@@@@@@@@@
           @@@@@@@@@@@@@@@@@ @@@@@@@@@@@@@@@@@
 """
+
+def save_database(
+    *,
+    log_camA: Log,
+    log_camB: Log,
+    sdlA: DataLoader,
+    sdlB: DataLoader,
+    save_to: str | Path,
+) -> None:
+    """
+    Saves the WFM cameras databases to a FITS file
+    as Binary Tables, at the ext `1` and `2`.
+
+    Args:
+        log_camA (Log):
+            Log instance with data from WFM camera A.
+        log_camB (Log):
+            Log instance with data from WFM camera B.
+        sdlA (DataLoader):
+            SDL instance for WFM camera A.
+        sdlB (DataLoader):
+            SDL instance for WFM camera B.
+        save_to (str | Path):
+            Directory path to save the FITS file.
+    """
+    logs = (log_camA, log_camB)
+    sdls = (sdlA, sdlB)
+
+    print("# Saving data...")
+    # HDU list and Primary Header
+    hdu_list = fits.HDUList([])
+    primary_hdu = fits.PrimaryHDU()
+    hdu_list.append(primary_hdu)
+
+    # BinTables
+    for log, sdl in zip(logs, sdls):
+        columns = [
+            _make_column(p.entry, log.log[p.entry], p.frmt, p.unit)
+            for p in log.params
+        ]
+        table_hdu = _make_bintable(log.name, columns, sdl.header)
+        hdu_list.append(table_hdu)
+
+    # save data
+    hdu_list.writeto(save_to, output_verify="fix+ignore")
+    hdu_list.close()
+    print("# Saving completed!")
 
 
 def save_sky(
@@ -177,8 +231,48 @@ def save_pickle(data: object, save_to: str | Path) -> None:
        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@      
 """
 
+def load_database(filepath: str | Path) -> tuple[Log, Log]:
+    """
+    Loads the specified WFM camera databases having the
+    structure described in `Log` (in `data.py` module).
 
-def load_sky(filepath: str | Path) -> tuple[NDArray]:
+    Args:
+        filepath (str | Path): Path to the FITS file.
+
+    Returns:
+        output (tuple[Log, Log]):
+            Containers with collected data for
+            the camera `A` and `B` of the WFM.
+    """
+    def load_data(filepath: Path, ext: int) -> Log:
+        """Opens FITS file and stores data in a dict."""
+        with fits.open(filepath) as hdu:
+            header = dict(hdu[ext].header)
+            data = hdu[ext].data
+        params = tuple(
+            LogEntry(
+                entry=header[f"TTYPE{idx}"].lower() if header[f"TTYPE{idx}"] != 'ID' else header[f"TTYPE{idx}"],
+                frmt=header[f"TFORM{idx}"],
+                unit=header[f"TUNIT{idx}"] if f"TUNIT{idx}" in header.keys() else ""
+            )
+            for idx in range(1, len(data[0]) + 1)
+        )
+        log = create_log(params, header["EXTNAME"])
+        for entry in log.log.keys():
+            log.add_entry_values(entry, list(data[entry.upper()]))
+        return log
+    
+    if not isinstance(filepath, Path):
+        filepath = Path(filepath)
+    if _exists_valid(filepath):
+        print("# Loading data...")
+        logA = load_data(filepath, ext=1)
+        logB = load_data(filepath, ext=2)
+        print("# Loading completed!")
+        return logA, logB
+
+
+def load_sky(filepath: str | Path) -> tuple[NDArray, NDArray]:
     """
     Loads sky and its SNR from FITS.
 
@@ -186,11 +280,11 @@ def load_sky(filepath: str | Path) -> tuple[NDArray]:
         filepath (str | Path): Path to the FITS file.
 
     Returns:
-        output (tuple):
+        output (tuple[NDArray, NDArray]):
             - sky (NDArray): 2D array for the sky.
-            - snr (NDArray): sky significance.
+            - snr (NDArray): Sky significance.
     """
-    def load_data(filepath: Path) -> tuple[NDArray]:
+    def load_data(filepath: Path) -> tuple[NDArray, NDArray]:
         """Open FITS and store Images in 2D-array."""
         with fits.open(filepath) as hdu:
             sky, snr = hdu[1].data, hdu[2].data

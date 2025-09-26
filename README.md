@@ -1,7 +1,7 @@
 # Darksun
 
-A bloodmoon package for handling IROS-related analyses with the WFM coded mask instrument. Darksun provides tools for:
-- Run an IROS-based sky fields reconstruction
+A bloodmoon package for handling IROS-related analyses with the LEM-X coded mask instrument. Darksun provides tools for:
+- Running an IROS-based sky fields reconstruction
 - Data filtering and output analyses
 - Skymaps comparison with chosen catalogues
 - Handle output FITS files (saving and/or loading)
@@ -12,6 +12,7 @@ A bloodmoon package for handling IROS-related analyses with the WFM coded mask i
 
 > ⚠️ **Note**\
 >The `bloodmoon` source files are present within the package for development sakes, they will be later removed.
+> The `IROS` package with the configuration modules for the pipeline are also present (temporary).
 
 ## Installation
 
@@ -47,10 +48,10 @@ conda activate darksun
 ## Quick Start
 
 ```python
-...
+coming soon...
 ```
 
-For more, take a look at the `darksun` [demo](demo/demo.ipynb) (still in progress...).
+For more, take a look at the `darksun` [demo](demo/demo.ipynb) (coming soon...).
 
 
 ## Development

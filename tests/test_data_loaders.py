@@ -8,10 +8,11 @@ from unittest import TestCase
 import numpy as np
 
 from bloodmoon.types import CoordEquatorial
+
 from darksun.data import get_data, get_catalogue
 
-from tests.assets import _path_test_SDL
-from tests.assets import _path_test_catalogue
+from .assets import _path_test_SDL
+from .assets import _path_test_catalogue
 
 class TestDataLoader(TestCase):
     """Tests for DataLoader and photons event list access."""
@@ -106,24 +107,32 @@ class TestCatalogueLoader(TestCase):
         catalogue2 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         catalogue3 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(fmin, None),
+            F_min=fmin,
         )
         catalogue4 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(None, fmax),
+            F_max=fmax,
         )
 
         with self.assertRaises(ValueError):
             catalogue5 = get_catalogue(
                 filepath=_path_test_catalogue,
                 n=n,
-                flux_range=(fmin, fmax),
+                F_min=fmin,
+                F_max=fmax,
+            )
+            catalogue6 = get_catalogue(
+                filepath=_path_test_catalogue,
+                n=n,
+                F_min=fmin,
+            )
+            catalogue7 = get_catalogue(
+                filepath=_path_test_catalogue,
+                n=n,
+                F_max=fmax,
             )
     
     def test_filter_allowed(self):
@@ -133,7 +142,6 @@ class TestCatalogueLoader(TestCase):
         sdl1 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         data = sdl1.DLdata
 
@@ -141,27 +149,26 @@ class TestCatalogueLoader(TestCase):
         fmin, fmax = 20, 100
         sdl2 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=(fmin, fmax),
+            F_min=fmin,
+            F_max=fmax,
         )
         data = sdl2.DLdata
     
     def test_filtering(self):
         """Tests if filters are correctly applied."""
         n = (3, 6)
-        flux_range = (20, 90)
+        fmin, fmax = 20, 90
 
         # test for `n`
         sdl1 = get_catalogue(
             filepath=_path_test_catalogue,
             n=n,
-            flux_range=None,
         )
         target1 = np.rec.array([
             ('SRC_A', 10.684,  41.269, 12.4, 120),
             ('SRC_I', 123.456, -10.123, 14.6, 101),
             ('SRC_J', 250.349, 36.467, 42.3, 110),
-        ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(sdl1.DLdata, order="NPHOTONS"),
@@ -172,8 +179,8 @@ class TestCatalogueLoader(TestCase):
         # test for `flux_range`
         sdl2 = get_catalogue(
             filepath=_path_test_catalogue,
-            n=None,
-            flux_range=flux_range,
+            F_min=fmin,
+            F_max=fmax,
         )
         target2 = np.rec.array([
             ('SRC_C', 201.365, -43.019, 87.2, 143),
@@ -181,7 +188,7 @@ class TestCatalogueLoader(TestCase):
             ('SRC_F', 13.158, -72.800, 23.1, 132),
             ('SRC_G', 299.868, 40.733, 71.8, 77),
             ('SRC_J', 250.349, 36.467, 42.3, 110),
-        ], dtype=[('NAME', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
+        ], dtype=[('ID', 'S10'), ('RA', 'f8'), ('DEC', 'f8'), ('FLUX', 'f8'), ('NPHOTONS', 'i4')])
 
         np.testing.assert_array_equal(
             np.sort(sdl2.DLdata, order="NPHOTONS"),

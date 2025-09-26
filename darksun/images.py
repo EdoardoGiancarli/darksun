@@ -2,6 +2,7 @@
 Module for images processing.
 """
 
+from typing import Any
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +17,8 @@ from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.optim import model_sky
 
 __all__ = [
-    "upscale", "downscale", "crop",
-    "make_sky", "WFM_composition"
+    "upscale", "downscale", "crop", "unframe",
+    "make_sky", "WFM_composition",
 ]
 
 
@@ -44,7 +45,7 @@ def upscale(
     Raises:
         ValueError: If upscale factors are not positive integers.
     
-    Notes:
+    ## Notes:
         - The array total sum is conserved through linear interpolation.
         - For N-dim arrays, consider using Astropy's `block_replicate()`.
     """
@@ -89,7 +90,7 @@ def downscale(
     Raises:
         ValueError: If downscale factors are not positive integers.
     
-    Notes:
+    ## Notes:
         - The downsampling is performed through blocks subdivision, which
           represent the elements of the downsampled array. Each block is
           reduced by adding its elements for linear interpolation.
@@ -155,34 +156,37 @@ def crop(
             wrt the array edges when they are exceeded.
     
     Returns:
-        output (NDArray): Cropped 2D array (shape twice the `crp`).
+        output (NDArray):
+            Cropped 2D array. The cut is performed by centering the
+            cropped array, so that the final shape is `2 * crp + 1`
+            along the two axes.
     
     Raises:
         ValueError: If `crp` is not a positive int tuple.
         IndexError: If `crp` wrt indexes exceeds 2D array edges
                     (only if `strict` is `True`).
     
-    Notes:
+    ## Notes:
         - Negative indexes for `pos` are allowed.
     """
     n, m = image.shape
     y, x = pos
     cy, cx = crp
-    flagx = (
+    boundary_x = (
         ((0 <= x - cx) and (x + cx < m - 1)) or ((cx - x <= m - 1) and (x + cx < 0))
     )
-    flagy = (
+    boundary_y = (
         ((0 <= y - cy) and (y + cy < n - 1)) or ((cy - y <= n - 1) and (y + cy < 0))
     )
 
     if (cy <= 0) or (cx <= 0):
         raise ValueError("Cropping must be a tuple of positive integers.")
-    if not (flagx and flagy):
+    if not (boundary_x and boundary_y):
         if not strict:
             # the crop extends up to the 2nd row/col from top/bottom/left/right
-            if not flagx:
+            if not boundary_x:
                 cx = min(x - 2, m - x - 3) if x > 0 else min(x + m + 2, -x - 2)
-            if not flagy:
+            if not boundary_y:
                 cy = min(y - 2, n - y - 3) if y > 0 else min(y + n + 2, -y - 2)
             print(f"Cropping {crp} at pos {pos} exceeds array edges, new cropping: {cy, cx}.")
         else:
@@ -191,9 +195,72 @@ def crop(
     return image[y - cy : y + cy + 1, x - cx : x + cx + 1]
 
 
+def unframe(
+    data: NDArray,
+    unframe_y: int | tuple[int | None, int | None] | None = None,
+    unframe_x: int | tuple[int | None, int | None] | None = None,
+) -> NDArray:
+    """
+    Unframes a 2D array by returning a `sliced view` of the array
+    along the specified axis.
+
+    Args:
+        data (NDArray):
+            Input 2D array.
+        unframe_y (int | tuple[int | None, int | None] | None, optional (default=`None`)):
+            Unframing factor over the y axis (rows).
+            * If `int`, crops symetrically: `data[y:-y, :]`;
+            * If `tuple(start, stop)`, crops asymetrically: `data[start : stop, :]`;
+            * `None` in the tuple means no crop on that edge.
+        unframe_x (int | tuple[int | None, int | None] | None, optional (default=`None`)):
+            Unframing factor over the x axis (columns), same behavior as `unframe_y`.
+
+    Returns:
+        output (NDArray): View of the unframed array.
+    
+    Raises:
+        TypeError: If unframe factors are not positive integers or a tuple of integers.
+    
+    Examples:
+        >>> a = np.ones((10, 10))
+        ...
+        >>> b = unframe(a)              # same as 'a', shape: (10, 10)
+        >>> c = unframe(a, 2)           # same as a[2:-2, :], shape: (6, 10)
+        >>> d = unframe(a, 2, 3)        # same as a[2:-2, 3:-3], shape: (6, 4)
+        >>> e = unframe(a, (2, None))   # same as a[2:, :], shape: (8, 10)
+        >>> f = unframe(a, (None, -2))  # same as a[:-2, :], shape: (8, 10)
+    """
+    unframe_f = (unframe_y, unframe_x)
+    if not any(unframe_f):
+        return data
+    
+    def config_slice(factor: Any) -> slice:
+        """Slice object config for array indexes."""
+        if factor is None:
+            return slice(None, None)
+        
+        if isinstance(factor, int):
+            i, j = (factor, -factor if factor != 0 else None)
+        elif isinstance(factor, tuple):
+            if any(isinstance(f, float) for f in factor):
+                raise TypeError(
+                    "Unframe factors must be positive integers or a tuple of integers."
+                )
+            i, j = factor
+        else:
+            raise TypeError(
+                "Unframe factors must be positive integers or a tuple of integers."
+            )
+        
+        return slice(i, j)
+
+    return data[*tuple(map(config_slice, unframe_f))]
+
+
 def make_sky(
     data: dict,
     camera: CodedMaskCamera,
+    *,
     vignetting: bool = True,
     psfy: bool = True,
     background: NDArray = None,
@@ -220,7 +287,7 @@ def make_sky(
     Raises:
         ValueError: If `background` has an invalid shape.
     
-    Notes:
+    ## Notes:
         - The input database must contain at least the sources (i) sky
           coords shifts in [mm] wrt the camera optical axis; (ii) their
           fluences [ph] and (iii) the px indexes.
@@ -296,15 +363,16 @@ def WFM_composition(
             File path for the camera B sky.
     
     Returns:
-        sky (NDArray):
-            WFM cameras sky composition.
-        snr (NDArray):
-            WFM composed sky significance computed by taking
-            the max of the two cameras individual sky SNR.
-        wcs (WCS):
-            Output reprojected WCS fit.
+        output (tuple[NDArray, NDArray, WCS]):
+            - sky (NDArray):
+                WFM cameras sky composition.
+            - snr (NDArray):
+                WFM composed sky significance computed by taking
+                the max of the two cameras individual sky SNR.
+            - wcs (WCS):
+                Output reprojected WCS fit.
 
-    Notes:
+    ## Notes:
         - If the WCS fit keys are not present in the camera skies headers,
           a TypeError will be raised from `find_optimal_celestial_wcs()`:
         >>> TypeError: "WCS does not have celestial components."
