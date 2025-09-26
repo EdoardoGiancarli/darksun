@@ -1,6 +1,6 @@
 # Darksun
 
-A bloodmoon package for handling IROS-related analyses with the WFM coded mask instrument. Darksun provides tools for:
+A bloodmoon package for handling IROS-related analyses with the LEM-X coded mask instrument. Darksun provides tools for:
 - Running an IROS-based sky fields reconstruction
 - Data filtering and output analyses
 - Skymaps comparison with chosen catalogues
