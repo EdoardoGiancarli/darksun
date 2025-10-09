@@ -856,12 +856,15 @@ def reconstruction_plot(
             lambda x: crop(x, pos=POS, crp=CUT, strict=False),
             (true_sky_, modeled),
         )
+        vlim = np.max(np.abs(true_crp - modeled_crp))
         image_plot(
             dmaps=map4image(
                 img=upscale(true_crp - modeled_crp, F_UPY, F_UPX) * np.prod((F_UPY, F_UPX)),
                 title=f'True - IROS Residues {log.name}',
                 cbarlabel='counts',
                 img_kwargs={
+                    'vmin': -vlim,
+                    'vmax': vlim,
                     'cmap': 'bwr',
                     'extent': (-CUT[1] * F_UPX, CUT[1] * F_UPX, -CUT[0] * F_UPY, CUT[0] * F_UPY),
                 },
