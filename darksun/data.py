@@ -150,7 +150,7 @@ def create_log(
 ) -> Log:
     """
     Initializes a Log instance with the given parameters to manage
-    the logging of the IROS procedure for the WFM cameras.
+    the logging of the IROS procedure for the LEM-X cameras.
 
     Args:
         params (LogEntry | Sequence[LogEntry]):
@@ -170,10 +170,10 @@ def create_log(
 @dataclass(frozen=True)
 class DataLoader(SimulationDataLoader):
     """
-    Container for WFM coded mask simulation data.
+    Container for LEM-X coded mask simulation data.
 
     The class provides access to photon events and instrument configuration
-    from a FITS file containing WFM simulation data for a single camera.
+    from a FITS file containing LEM-X simulation data for a single camera.
 
     This class inherits from bloodmoon's `SimulationDataLoader`, and allows
     for data filtering in the photons energy and incoming direction.
@@ -249,10 +249,10 @@ def get_data(
 @dataclass(frozen=True)
 class CatalogueLoader(SimulationDataLoader):
     """
-    Container for WFM coded mask sources catalog.
+    Container for LEM-X coded mask sources catalog.
 
     The class provides access to the catalog and instrument configuration
-    from a FITS file containing WFM simulation data for a single camera.
+    from a FITS file containing LEM-X simulation data for a single camera.
 
     This class inherits from bloodmoon's `SimulationDataLoader`, and allows
     for catalog filtering in the brightness and flux channels.

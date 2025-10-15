@@ -45,7 +45,7 @@ def run_IROS(
 
     This wrapper iteratively removes the detected sources candidates from the sky until
     either the maximum number of iterations is reached or the SNR threshold is met.
-    At each iteration, two logs for the coded-mask cameras of the Wide Field Monitor
+    At each iteration, two logs for the specified LEM-X module coded-mask cameras
     are updated with the following candidates estimated parameters:
 
         - camera local frame sky-coordinates shifts along the (x, y)
@@ -77,10 +77,10 @@ def compute_parameters(
 ) -> Log:
     """
     Computes parameters for IROS reconstructed candidates.
-    The input WFM camera Log is updated with the following parameters:
+    The input LEM-X camera Log is updated with the following parameters:
 
         - candidates image pixel indexes
-        - WFM camera local frame (x, y) angular coordinates and errors, in [deg]
+        - LEM-X camera local frame (x, y) angular coordinates and errors, in [deg]
         - candidate equatorial coordinates (RA, Dec) and errors, in [deg]
         - candidate photons rate and error, in [ph/s]
         - candidate photons flux and error, in [ph/cm2/s]
@@ -91,7 +91,7 @@ def compute_parameters(
         camera (CodedMaskCamera):
             CodedMaskCamera instance used for imaging and reconstruction.
         sdl (DataLoader):
-            Data container instance for chosen WFM coded-mask camera.
+            Data container instance for chosen LEM-X coded-mask camera.
         vignetting (bool, optional (default=`True`)):
             If `True`, the model used for optimization will simulate vignetting.
         psfy (bool, optional (default=`True`)):
@@ -278,15 +278,15 @@ def catalogue_comparison(
     `shifts` of the catalogue sources with the shifts and relative errorboxes
     of the decoded candidates at `3` sigma level.
     If no catalogue sources are found, the candidates are labeled as new
-    sources, with the respective WFM coded-mask camera ID.
+    sources, with the respective LEM-X coded-mask camera ID.
 
     Args:
         log (Log):
             IROS data output.
         catalogue (CatalogueLoader):
-            Catalogue data for the WFM coded-mask camera.
+            Catalogue data for the LEM-X coded-mask camera.
         sdl (DataLoader):
-            Data container instance for chosen WFM coded-mask camera.
+            Data container instance for chosen LEM-X coded-mask camera.
         camera (CodedMaskCamera):
             CodedMaskCamera instance used for imaging and reconstruction.
         screening (bool, optional (default=`True`)):

@@ -347,7 +347,7 @@ def WFM_composition(
     skyB_path: str | Path,
 ) -> tuple[NDArray, NDArray, WCS]:
     """
-    Performs the composition of the WFM cameras skies and significances,
+    Performs the composition of the LEM-X module cameras skies and significances,
     including the reprojection of the World Coordinates System for RA/Dec.
 
     Specifically, it:
@@ -365,10 +365,10 @@ def WFM_composition(
     Returns:
         output (tuple[NDArray, NDArray, WCS]):
             - sky (NDArray):
-                WFM cameras sky composition.
+                LEM-X module cameras sky composition.
             - snr (NDArray):
-                WFM composed sky significance computed by taking
-                the max of the two cameras individual sky SNR.
+                LEM-X module composed sky significance computed by
+                taking the max of the two cameras individual sky SNR.
             - wcs (WCS):
                 Output reprojected WCS fit.
 
@@ -384,7 +384,7 @@ def WFM_composition(
         skies = (hduA[1], hduB[1])
         snrs = (hduA[2], hduB[2])
     
-        print("# Composing WFM skies...")
+        print("# Composing LEM-X module skies...")
         wcs_out, shape_out = find_optimal_celestial_wcs(input_data=skies)
         sky_comp, _ = reproject_and_coadd(
             input_data=skies,
@@ -401,7 +401,7 @@ def WFM_composition(
             combine_function="max",
         )
     
-    print("# WFM composition completed!")
+    print("# LEM-X module composition completed!")
     return sky_comp, snr_comp, wcs_out
 
 

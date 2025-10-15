@@ -110,18 +110,18 @@ def save_database(
     save_to: str | Path,
 ) -> None:
     """
-    Saves the WFM cameras databases to a FITS file
-    as Binary Tables, at the ext `1` and `2`.
+    Saves the LEM-X modules cameras databases to a FITS
+    file as Binary Tables, at the ext `1` and `2`.
 
     Args:
         log_camA (Log):
-            Log instance with data from WFM camera A.
+            Log instance with data from LEM-X modules camera A.
         log_camB (Log):
-            Log instance with data from WFM camera B.
+            Log instance with data from LEM-X modules camera B.
         sdlA (DataLoader):
-            SDL instance for WFM camera A.
+            SDL instance for LEM-X modules camera A.
         sdlB (DataLoader):
-            SDL instance for WFM camera B.
+            SDL instance for LEM-X modules camera B.
         save_to (str | Path):
             Directory path to save the FITS file.
     """
@@ -233,7 +233,7 @@ def save_pickle(data: object, save_to: str | Path) -> None:
 
 def load_database(filepath: str | Path) -> tuple[Log, Log]:
     """
-    Loads the specified WFM camera databases having the
+    Loads the specified LEM-X modules camera databases having the
     structure described in `Log` (in `data.py` module).
 
     Args:
@@ -241,8 +241,8 @@ def load_database(filepath: str | Path) -> tuple[Log, Log]:
 
     Returns:
         output (tuple[Log, Log]):
-            Containers with collected data for
-            the camera `A` and `B` of the WFM.
+            Containers with collected data for the
+            camera `A` and `B` of the LEM-X modules.
     """
     def load_data(filepath: Path, ext: int) -> Log:
         """Opens FITS file and stores data in a dict."""

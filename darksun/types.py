@@ -1,5 +1,5 @@
 """
-Custom data types and containers for the WFM analysis pipeline.
+Custom data types and containers for the LEM-X camera modules analysis pipeline.
 """
 
 from typing import NamedTuple
