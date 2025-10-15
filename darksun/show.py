@@ -112,6 +112,7 @@ class DSPlot:
         size: int | float = PLOTPARAMS['size'],
         dpi: int | float = PLOTPARAMS['dpi'],
         ptype: str = 'plot',
+        **kwargs: Any,
     ) -> tuple[Figure, Axes | NDArray]:
         """
         Creates and configures subplots.
@@ -127,6 +128,8 @@ class DSPlot:
                 Subplots plot type, can be 'plot' for plots or 'image'
                 for images plotting (e.g., see `plot()` and `image_plot()`
                 in the `darksun.show.py` module).
+            kwargs (Any):
+                Additional keywords passed to `plt.subplot()`.
 
         Returns:
             output (tuple[Figure, Axes | NDArray]):
@@ -144,7 +147,9 @@ class DSPlot:
             lambda x: int(size * x + 1) if x > 1 else size,
             (self.nrows, self.ncols),
         )
-        fig, axs = plt.subplots(self.nrows, self.ncols, figsize=(width, height))
+        fig, axs = plt.subplots(
+            self.nrows, self.ncols, figsize=(width, height), **kwargs,
+        )
         fig.dpi = dpi
         fig.tight_layout()
         fig.subplots_adjust(
@@ -715,19 +720,19 @@ def slices_plot(
         labels (str | Sequence[str | None] | None, optional (default=`None`)):
             Labels for each 2D array slice, used in the legend.
         cameraID (str | None, optional (default=`None`)):
-            ID for the Wide Field Monitor coded-mask camera.
+            ID for the LEM-X coded-mask camera unit.
         save_to (str | Path | None, optional (default=`None`)):
             Path to save the figure.
         **kwargs (Any):
             Additional keyword arguments for the `plot` function.
     """
     colors_ = (
-        'OrangeRed', 'DodgerBlue', 'Lawngreen', 'm'
+        'OrangeRed', 'DodgerBlue', 'm', 'Lawngreen',
     )
 
     def phase(x: NDArray) -> NDArray:
         """Centers x-axis values around zero."""
-        return np.arange(len(x)) - len(x) // 2
+        return np.arange(len(x)) - len(x) // 2 - 0.5
     
     cropped = tuple(
         crop(s, pos, crp, strict=False) for s in (
@@ -749,6 +754,7 @@ def slices_plot(
         ylabel=ylabel or 'counts [ph]',
         labels=labels,
         x=map(phase, xslice),
+        style='stairs',
         color=colors_,
         ylim=ylim_xslice or (None, None),
     )
@@ -759,6 +765,7 @@ def slices_plot(
         ylabel=ylabel or 'counts [ph]',
         labels=labels,
         x=map(phase, yslice),
+        style='stairs',
         color=colors_,
         ylim=ylim_yslice or (None, None),
     )
