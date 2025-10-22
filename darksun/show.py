@@ -567,7 +567,7 @@ def map4image(
     cbarlabel: str = None,
     cbarloc: str = 'right',
     tags: Tag | Sequence[Tag] | None = None,
-    img_kwargs: dict[str, Any],
+    img_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Configures a dictionary with the specified info for plotting a
@@ -590,7 +590,7 @@ def map4image(
         tags (Tag | Sequence[Tag] | None, optional (default=`None`)):
             Single `Tag` or sequence of `Tag`s objects (e.g., to
             mark the position of the sources, with respective ID).
-        img_kwargs (dict[str, Any]):
+        img_kwargs (dict[str, Any], optional (default=`None`)):
             Keyword arguments passed to `matplotlib.pyplot.imshow`.
     """
     dmap = {
@@ -654,7 +654,8 @@ def image_plot(
     for ax, dmap in zip(axs_, dmaps_):
         dsp.config_labels(ax, dmap['title'], dmap['xlabel'], dmap['ylabel'])
         dsp.config_ticks(ax)
-        img = ax.imshow(dmap['img'], origin=PLOTPARAMS['cbar_origin'], **dmap['img_kwargs'])
+        kwargs_ = dmap['img_kwargs'] or {}
+        img = ax.imshow(dmap['img'], origin=PLOTPARAMS['cbar_origin'], **kwargs_)
         cbar = fig.colorbar(
             img, ax=ax, location=dmap['cbarloc'], shrink=PLOTPARAMS['cbar_shrink'],
             pad=PLOTPARAMS[f'cbar_pad_{dmap['cbarloc']}'],
