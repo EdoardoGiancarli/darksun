@@ -2,13 +2,15 @@
 General utility functions for the darksun package.
 """
 
-from typing import Any, Generator
+from typing import Any, Callable, Generator
 from contextlib import contextmanager
 import time
 from datetime import datetime
 
+import numpy as np
+
 __all__ = [
-    "timer",
+    "timer", "benchmark_func",
 ]
 
 
@@ -43,6 +45,49 @@ def timer(name: str) -> Generator[None, Any, None]:
         elapsed_time = handle_time(start_time, end_time)
         mess = f"    # Finished '{name}' in {elapsed_time}"
         print(mess + ".\n" if not error else mess + f" with {error}.\n")
+
+
+def benchmark_func(
+    func: Callable[[Any], Any],
+    *args: Any,
+    iterations: int = 500,
+) -> tuple[float, float, Any]:
+    """
+    Benchmarks input `func` by running it for a specified number of times.
+    The benchmark is performed by first calling the function to account
+    for JIT compilation, caching and first-call effects (not included in
+    the final performance time computation).
+
+    Args:
+        func (Callable[[Any], Any]):
+            Function to benchmark.
+        args (Any):
+            Input `func` arguments.
+        iterations (int, optional (default=`500`)):
+            Number of call repetitions.
+    
+    Returns:
+        output (tuple[float, float, Any]):
+            - (float): Benchmarking repetitions averaged time.
+            - (float): Averaged time error.
+            - (Any): Input `func` results.
+    """
+    func(*args)
+    result = None
+    rep_time = []
+
+    for _ in range(iterations):
+        start_time = time.perf_counter()
+        result = func(*args)
+        end_time = time.perf_counter()
+
+        delta = end_time - start_time
+        rep_time.append(delta)
+
+    rep_time_ = np.array(rep_time)
+    average, error = np.mean(rep_time_), np.std(rep_time_)
+
+    return average, error, result
 
 
 # end

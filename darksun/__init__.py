@@ -58,6 +58,7 @@ from .show import skyfield_map
 # from .stats import __all__
 
 from .utils import timer
+from .utils import benchmark_func
 
 
 # end
