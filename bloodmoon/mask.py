@@ -13,38 +13,21 @@ from bisect import bisect_right
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
+from typing import Callable
 
-from astropy.io.fits.fitsrec import FITS_rec
 import numpy as np
 import numpy.typing as npt
 from scipy.signal import correlate
-from scipy.stats import binned_statistic_2d
 
 from .coords import pos2shift
 from .images import _interp
-from .images import _unframe
 from .images import _upscale
+from .images import _shift
 from .images import argmax
-from .io import MaskDataLoader
+from .io import load_from_fits
+from .io import validate_fits
 from .types import BinsRectangular
 from .types import UpscaleFactor
-
-
-def _fold(
-    ml: FITS_rec,
-    mask_bins: BinsRectangular,
-) -> npt.NDArray:
-    """
-    Convert mask data from FITS record to 2D binned array.
-
-    Args:
-        ml: FITS record containing mask data
-        mask_bins: Binning structure for the mask
-
-    Returns:
-        2D array containing binned mask data
-    """
-    return binned_statistic_2d(ml["X"], ml["Y"], ml["VAL"], statistic="max", bins=[mask_bins.x, mask_bins.y])[0].T
 
 
 def _bisect_interval(
@@ -79,6 +62,36 @@ def _bisect_interval(
     return bisect_right(a, start) - 1, bisect_left(a, stop)
 
 
+@dataclass(frozen=True)
+class CodedMaskSpecs:
+    detector_minx: float
+    detector_maxx: float
+    detector_miny: float
+    detector_maxy: float
+    mask_deltax: float
+    mask_deltay: float
+    mask_thickness: float
+    mask_minx: float
+    mask_miny: float
+    mask_maxx: float
+    mask_maxy: float
+    slit_deltax: float
+    slit_deltay: float
+    # The mask-detector distance can be defined in several ways:
+    # - Distance between detector top and mask bottom
+    # - Distance between detector top and mask top
+    # - Distance between detector top and mask midpoint
+    # The key requirement is consistency: whichever definition is used here
+    # must match the correction applied in vignetting (see comment in
+    # `apply_vignetting`).
+    # We define the distance as the separation between detector top and mask top.
+    # This choice is empirically motivated: testing showed this definition yields
+    # the best results, though we don't fully understand why. Note that this
+    # differs from the data convention, where mask-detector distance refers to
+    # the separation between detector top and mask bottom.
+    mask_detector_distance: float
+
+
 """
 last one 
 i swear
@@ -99,40 +112,44 @@ class CodedMaskCamera:
     Dataclass containing a coded mask camera system.
 
     Handles mask pattern, detector geometry, and related calculations for coded mask imaging.
+    Uses callable thunks for lazy loading of mask data to maintain hashability and performance.
 
     Args:
-        mdl: Mask data loader object containing mask and detector specifications
+        get_mask: Callable that returns mask pattern as 2D array
+        get_decoder: Callable that returns decoder pattern as 2D array
+        get_bulk: Callable that returns bulk pattern as 2D array
+        specs: CodedMaskSpecs containing geometric parameters and dimensions
         upscale_f: Tuple of upscaling factors for x and y dimensions
 
     Raises:
         ValueError: If detector plane is larger than mask or if upscale factors are not positive
     """
 
-    mdl: MaskDataLoader
-    upscale_f: UpscaleFactor
+    # note that we are taking thunks here, rather than the actual array.
+    # two reasons for this:
+    #   1. python functions are hashable and using thunks keeps camera objects hashable themselves.
+    #   2. reading data may take time. thunk delays this expensive operation.
+    get_mask: Callable[[], npt.NDArray]
+    get_decoder: Callable[[], npt.NDArray]
+    get_bulk: Callable[[], npt.NDArray]
+    specs: CodedMaskSpecs
+    upscale_x: int = 1
+    upscale_y: int = 1
 
-    @property
-    def specs(self) -> dict:
-        """Returns a dictionary of mask parameters useful for image reconstruction."""
-        return self.mdl.specs
+    @cached_property
+    def upscale_f(self):
+        return UpscaleFactor(x=self.upscale_x, y=self.upscale_y)
 
     @cached_property
     def shape_detector(self) -> tuple[int, int]:
         """Shape of the detector array (rows, columns)."""
-        xmin = np.floor(self.mdl["detector_minx"] / (self.mdl["mask_deltax"] / self.upscale_f.x))
-        xmax = np.ceil(self.mdl["detector_maxx"] / (self.mdl["mask_deltax"] / self.upscale_f.x))
-        ymin = np.floor(self.mdl["detector_miny"] / (self.mdl["mask_deltay"] / self.upscale_f.y))
-        ymax = np.ceil(self.mdl["detector_maxy"] / (self.mdl["mask_deltay"] / self.upscale_f.y))
-        return int(ymax - ymin), int(xmax - xmin)
+        return len(self.bins_detector.y) - 1, len(self.bins_detector.x) - 1
 
     @cached_property
     def shape_mask(self) -> tuple[int, int]:
         """Shape of the mask array (rows, columns)."""
         # there is no need for this since we can just `mask.shape` but since we have the other already..
-        return (
-            int((self.mdl["mask_maxy"] - self.mdl["mask_miny"]) / (self.mdl["mask_deltay"] / self.upscale_f.y)),
-            int((self.mdl["mask_maxx"] - self.mdl["mask_minx"]) / (self.mdl["mask_deltax"] / self.upscale_f.x)),
-        )
+        return len(self.bins_mask.y) - 1, len(self.bins_mask.x) - 1
 
     @cached_property
     def shape_sky(self) -> tuple[int, int]:
@@ -146,10 +163,10 @@ class CodedMaskCamera:
         upscale_f: UpscaleFactor,
     ) -> BinsRectangular:
         """Returns bins for mask with given upscale factors."""
-        l, r = self.mdl["mask_minx"], self.mdl["mask_maxx"]
-        b, t = self.mdl["mask_miny"], self.mdl["mask_maxy"]
-        xsteps = int((r - l) / (self.mdl["mask_deltax"] / upscale_f.x)) + 1
-        ysteps = int((t - b) / (self.mdl["mask_deltay"] / upscale_f.y)) + 1
+        l, r = self.specs.mask_minx, self.specs.mask_maxx
+        b, t = self.specs.mask_miny, self.specs.mask_maxy
+        xsteps = int((r - l) / (self.specs.mask_deltax / upscale_f.x)) + 1
+        ysteps = int((t - b) / (self.specs.mask_deltay / upscale_f.y)) + 1
         return BinsRectangular(np.linspace(l, r, xsteps), np.linspace(b, t, ysteps))
 
     @cached_property
@@ -174,9 +191,9 @@ class CodedMaskCamera:
                 │               │
            detector_min   detector_max
         """
-        bins = self._bins_mask(self.upscale_f)
-        jmin, jmax = _bisect_interval(bins.x, self.mdl["detector_minx"], self.mdl["detector_maxx"])
-        imin, imax = _bisect_interval(bins.y, self.mdl["detector_miny"], self.mdl["detector_maxy"])
+        bins = self._bins_mask(upscale_f)
+        jmin, jmax = _bisect_interval(bins.x, self.specs.detector_minx, self.specs.detector_maxx)
+        imin, imax = _bisect_interval(bins.y, self.specs.detector_miny, self.specs.detector_maxy)
         return BinsRectangular(self.bins_mask.x[jmin : jmax + 1], self.bins_mask.y[imin : imax + 1])
 
     @cached_property
@@ -186,7 +203,7 @@ class CodedMaskCamera:
 
     def _bins_sky(self, upscale_f: UpscaleFactor) -> BinsRectangular:
         """
-        Returns bins for the reconstructed sky image.cd
+        Returns bins for the reconstructed sky image.
         While the mask and detector bins are aligned, the sky-bins are not.
 
             │    │    │    │    │    │    │
@@ -224,28 +241,48 @@ class CodedMaskCamera:
     @cached_property
     def mask(self) -> npt.NDArray:
         """2D array representing the coded mask pattern."""
-        return _upscale(
-            _fold(self.mdl.mask, self._bins_mask(UpscaleFactor(1, 1))).astype(int),
-            *self.upscale_f,
-        )
+        return _upscale(self.get_mask(), *self.upscale_f)
 
     @cached_property
     def decoder(self) -> npt.NDArray:
         """2D array representing the mask pattern used for decoding."""
-        return _upscale(
-            _fold(self.mdl.decoder, self._bins_mask(UpscaleFactor(1, 1))),
-            *self.upscale_f,
-        )
+        return _upscale(self.get_decoder(), *self.upscale_f)
 
     @cached_property
     def bulk(self) -> npt.NDArray:
-        """2D array representing the bulk (sensitivity) array of the mask."""
-        framed_bulk = _fold(self.mdl.bulk, self._bins_mask(UpscaleFactor(1, 1)))
-        framed_bulk[~np.isclose(framed_bulk, np.zeros_like(framed_bulk))] = 1
+        """
+        2D array representing the bulk (sensitivity) array of the mask.
+        """
+        def _bulk_cover(
+            bulk: npt.NDArray,
+            bulk_els_to_hide: int | float,
+        ) -> npt.NDArray:
+            """
+            Builds a mask for the detector plane, accounting for the 'reconstructed'
+            dataset artefacts from WISEMAN at the DAs edges along the y-axis.
+
+            The input `bulk_els_to_hide` is in [mm].
+            """
+            print(f'## USING BULK MASK with {bulk_els_to_hide} mm cover ##')
+            num_px_to_hide = int(bulk_els_to_hide * self.upscale_f.y / self.specs.mask_deltay)
+            active_elements = np.array((bulk > 0), dtype=int)
+            edges_cover = (
+                (_shift(active_elements, -num_px_to_hide, 0) > 0) &
+                (_shift(active_elements, num_px_to_hide , 0) > 0)
+            )
+            return active_elements * edges_cover
+        
+        bulk = self.get_bulk()
+        bulk[~np.isclose(bulk, np.zeros_like(bulk))] = 1
         bins = self._bins_mask(self.upscale_f)
-        xmin, xmax = _bisect_interval(bins.x, self.mdl["detector_minx"], self.mdl["detector_maxx"])
-        ymin, ymax = _bisect_interval(bins.y, self.mdl["detector_miny"], self.mdl["detector_maxy"])
-        return _upscale(framed_bulk, *self.upscale_f)[ymin:ymax, xmin:xmax]
+        xmin, xmax = _bisect_interval(bins.x, self.specs.detector_minx, self.specs.detector_maxx)
+        ymin, ymax = _bisect_interval(bins.y, self.specs.detector_miny, self.specs.detector_maxy)
+        # why `xmin: xmax` rather than `xmin: xmax + 1`?
+        # `bins.x[xmin:xmax + 1]` is the smallest subarray of `bins.x` spanning `det_minx` and `det_maxx`
+        # the bin edges number of the subarray is `xmax - xmin + 1`.
+        # the number of matrix elements in the subarray is `xmax - xmin + 1 - 1 == xmax - xmin`
+        upscaled = _upscale(bulk, *self.upscale_f)[ymin:ymax, xmin:xmax]
+        return upscaled * _bulk_cover(upscaled, 1.5)
 
     @cached_property
     def balancing(self) -> npt.NDArray:
@@ -259,35 +296,48 @@ def codedmask(
     upscale_y: int = 1,
 ) -> CodedMaskCamera:
     """
-    An interface to CodedMaskCamera.
+    Create a CodedMaskCamera from FITS file data.
+
+    Loads mask patterns and specifications from a FITS file and creates a
+    CodedMaskCamera instance with lazy-loaded array data.
 
     Args:
-        mask_filepath: a str or a path object pointing to the mask filepath
-        upscale_x: upscaling factor over the x direction
-        upscale_y: upscaling factor over the y direction
+        mask_filepath: Path to the mask FITS file
+        upscale_x: Upscaling factor for x direction (default: 1)
+        upscale_y: Upscaling factor for y direction (default: 1)
 
     Returns:
-        a CodedMaskCamera object.
+        CodedMaskCamera object containing mask patterns and specifications
 
     Raises:
-        ValueError: for invalid upscale factors.
+        ValueError: If detector plane is larger than mask or upscale factors are invalid
+        NotImplementedError: If mask_filepath is not a valid FITS file
     """
-    mdl = MaskDataLoader(mask_filepath)
+    if validate_fits(mask_filepath):
+        get_mask, get_decoder, get_bulk, specs_dict = load_from_fits(mask_filepath)
+        specs = CodedMaskSpecs(**specs_dict)
+        if not (
+            # fmt: off
+                specs.detector_minx >= specs.mask_minx and
+                specs.detector_maxx <= specs.mask_maxx and
+                specs.detector_miny >= specs.mask_miny and
+                specs.detector_maxy <= specs.mask_maxy
+            # fmt: on
+        ):
+            raise ValueError("Detector plane is larger than mask.")
 
-    if not (
-        # fmt: off
-        mdl["detector_minx"] >= mdl["mask_minx"] and
-        mdl["detector_maxx"] <= mdl["mask_maxx"] and
-        mdl["detector_miny"] >= mdl["mask_miny"] and
-        mdl["detector_maxy"] <= mdl["mask_maxy"]
-        # fmt: on
-    ):
-        raise ValueError("Detector plane is larger than mask.")
+        if not ((isinstance(upscale_x, int) and upscale_x > 0) and (isinstance(upscale_y, int) and upscale_y > 0)):
+            raise ValueError("Upscale factors must be positive integers.")
 
-    if not ((isinstance(upscale_x, int) and upscale_x > 0) and (isinstance(upscale_y, int) and upscale_y > 0)):
-        raise ValueError("Upscale factors must be positive integers.")
-
-    return CodedMaskCamera(mdl, UpscaleFactor(x=upscale_x, y=upscale_y))
+        return CodedMaskCamera(
+            get_mask=get_mask,
+            get_decoder=get_decoder,
+            get_bulk=get_bulk,
+            specs=specs,
+            upscale_x=upscale_x,
+            upscale_y=upscale_y,
+        )
+    raise NotImplementedError("Only reading masks from fits file is supported.")
 
 
 def encode(
@@ -329,25 +379,161 @@ def decode(
     return cc_bal
 
 
+def solid_angle(
+    x: float | npt.NDArray,
+    y: float | npt.NDArray,
+    width: float,
+    height: float,
+    distance: float,
+) -> npt.NDArray:
+    """
+    Computes the solid angle subtended by a rectangular mask at a given distance from the detector,
+    as seen from a point (x, y) of the detector plane.
+
+    Args:
+        x (float | NDArray):
+            Detector element position over the x-axis wrt mask bottom-left corner.
+            A non-zero solid angle requires that `0 <= x <= width / 2`.
+        y (float | NDArray):
+            Detector element position over the y-axis wrt mask bottom-left corner.
+            A non-zero solid angle requires that `0 <= y <= height / 2`.
+        width (float):
+            Mask width.
+        height (float):
+            Mask height.
+        distance (float):
+            Distance between the plate and the detector.
+
+    Returns:
+        output (float | NDArray):
+            Solid angle on the plate seen by the observer.
+
+    Raises:
+        ValueError: If input coords (x, y) not in the range [0, width / 2] x [0, height / 2].
+
+    ## Notes
+        - See also:
+            * https://github.com/yuri-evangelista/CodedMasks/blob/26a5bb2fa08e37c645f85d55a3a1ef038fe7497d/mask_utils/imaging_utils.py#L58
+            * https://vixra.org/pdf/2001.0603v2.pdf [Eq. 27, 34]
+    """
+
+    def on_axis_solid_angle(
+        a: float | npt.NDArray,
+        b: float | npt.NDArray,
+    ) -> float | npt.NDArray:
+        """
+        Computes the solid angle covered by a plate of dimension
+        `a` X `b` wrt an observer at a given ox-axis `distance`.
+        """
+        alpha = a / (2 * distance)
+        beta = b / (2 * distance)
+        return 4 * np.arctan((alpha * beta) / np.sqrt(1 + alpha**2 + beta**2))
+
+    if np.any((x < 0) | (x > width / 2) | (y < 0) | (y > height / 2)):
+        raise ValueError(f"Invalid coords (x, y). Coords must be in the range [0, {width / 2}] x [0, {height / 2}].")
+
+    # - to compute the solid angle, the plate is divided in four sub-portions,
+    #   with the observer located on one corner of each one. The plate solid
+    #   angle can be computed by averaging the sub-portions solid angles seen
+    #   by an on-axis observer.
+    # - the sub-rectangules have areas:
+    #       * `A_r1 = x * y`
+    #       * `A_r2 = (width - x) * y`
+    #       * `A_r3 = (width - x) * (height - y)`
+    #       * `A_r4 = x * (height - y)`
+    sub_portions = (
+        (x, y),
+        ((width - x), y),
+        ((width - x), (height - y)),
+        (x, (height - y)),
+    )
+    omega = tuple(on_axis_solid_angle(2 * a, 2 * b) for a, b in sub_portions)
+    return sum(omega) / len(omega)
+
+
+def solid_angle_profile(camera: CodedMaskCamera) -> npt.NDArray:
+    """
+    Computes the sky solid angle profile seen by each active element
+    of the coded-mask camera detector.
+
+    The solid angle is computed by considering only the instrument
+    geometry, taking into account the mask physical dimension, which
+    represents the base of a pyramid whose vertex sits on the center
+    of each active element of the detector plane, and all the active
+    elements coordinates (along the plane).
+    The final array is masked with the detector bulk profile.
+
+    Args:
+        camera (CodedMaskCamera):
+            Camera instance containing the system geometry info.
+
+    Returns:
+        output (NDArray):
+            2D array representing the solid angle profile.
+
+    ## Notes:
+        - See also `solid_angle`
+    """
+    # define mask physical dim (width, height)
+    d = camera.specs.mask_detector_distance
+    maxx, minx = camera.specs.mask_maxx, camera.specs.mask_minx
+    maxy, miny = camera.specs.mask_maxy, camera.specs.mask_miny
+    maskplate_physdim = (maxx - minx, maxy - miny)
+
+    # compute x- and y-coords for the detector elements solid angle
+    #   - first define detector plane active elements positions
+    #   - elements coords are clipped to remove binning artefact
+    #   - the solid angle is masked with the bulk active elements
+    _binsx, _binsy = camera.bins_detector
+    centers_x, centers_y = (
+        _binsx[:-1] + camera.specs.mask_deltax / (2 * camera.upscale_f.x),
+        _binsy[:-1] + camera.specs.mask_deltay / (2 * camera.upscale_f.y),
+    )
+    xs = np.clip(maxx - np.abs(centers_x[np.newaxis, :]), a_min=0, a_max=None)
+    ys = np.clip(maxy - np.abs(centers_y[:, np.newaxis]), a_min=0, a_max=None)
+    return solid_angle(xs, ys, *maskplate_physdim, d) * (camera.bulk > 0)
+
+
 def variance(
     camera: CodedMaskCamera,
     detector: npt.NDArray,
 ) -> npt.NDArray:
     """
-    Reconstruct balanced sky variance from detector counts.
+    Reconstructs balanced sky variance from detector image.
 
     Args:
-        camera: CodedMaskCamera object containing mask and decoder patterns
-        detector: 2D array of detector counts
+        camera (CodedMaskCamera):
+            Camera instance containing mask and decoder patterns.
+        detector (NDArray):
+            2D array of detector counts.
 
     Returns:
-        Variance map of the reconstructed sky image
+        output (NDArray):
+            Balanced variance map of the reconstructed sky image.
+
+    ## Notes:
+        - See also:
+            * https://github.com/yuri-evangelista/CodedMasks/blob/26a5bb2fa08e37c645f85d55a3a1ef038fe7497d/mask_utils/imaging_utils.py#L134
     """
-    cc = correlate(camera.decoder, detector, mode="full")
-    var = correlate(np.square(camera.decoder), detector, mode="full")
+    # retrieve total detector counts and total active elements
     sum_det, sum_bulk = map(np.sum, (detector, camera.bulk))
-    var_bal = var + np.square(camera.balancing) * sum_det / np.square(sum_bulk) - 2 * cc * camera.balancing / sum_bulk
-    return var_bal
+
+    # compute expected counts for the detector image
+    # - the expected counts array `lambda` can be built as the product between
+    #   a normalised matrix `omega` representing the solid angle seen by each
+    #   active pixel; and the total observed detector counts (i.e., `sum_det`)
+    omega = solid_angle_profile(camera)
+    lambda_ = sum_det * omega / omega.sum()
+
+    # balanced variance components
+    var = correlate(np.square(camera.decoder), lambda_, mode="full")
+    bal = np.square(camera.balancing) * sum_det / np.square(sum_bulk)
+    covar = correlate(camera.decoder, lambda_, mode="full")
+
+    var_bal = (
+        var + bal - 2 * covar * camera.balancing / sum_bulk
+    )
+    return np.clip(var_bal, a_min=1e-8, a_max=detector.sum())
 
 
 def snratio(
@@ -363,14 +549,8 @@ def snratio(
 
     Returns:
         NDArray: Signal-to-noise ratio calculated as sky/sqrt(variance).
-
-    Notes:
-        - Variance's boundary frames with elements close to zero are replaced with infinity.
-        - Variance's minimum is clipped at 0 if any negative value are present in the array.
     """
-    variance_clipped = np.clip(var, a_min=0.0, a_max=None) if np.any(var < 0) else var
-    variance_unframed = _unframe(variance_clipped, value=np.inf)
-    return sky / np.sqrt(variance_unframed)
+    return sky / np.sqrt(var)
 
 
 def psf(camera: CodedMaskCamera) -> npt.NDArray:
@@ -440,13 +620,13 @@ def cutout(
     sx, sy = pos2shift(camera, *pos)
     min_i, max_i = _bisect_interval(
         bins.y,
-        max(sy - camera.mdl["slit_deltay"] * (fy / 2), bins.y[0]),
-        min(sy + camera.mdl["slit_deltay"] * (fy / 2), bins.y[-1]),
+        max(sy - camera.specs.slit_deltay * (fy / 2), bins.y[0]),
+        min(sy + camera.specs.slit_deltay * (fy / 2), bins.y[-1]),
     )
     min_j, max_j = _bisect_interval(
         bins.x,
-        max(sx - camera.mdl["slit_deltax"] * (fx / 2), bins.x[0]),
-        min(sx + camera.mdl["slit_deltax"] * (fx / 2), bins.x[-1]),
+        max(sx - camera.specs.slit_deltax * (fx / 2), bins.x[0]),
+        min(sx + camera.specs.slit_deltax * (fx / 2), bins.x[-1]),
     )
     return (min_i, max_i, min_j, max_j), BinsRectangular(
         x=bins.x[min_j : max_j + 1],
@@ -456,8 +636,8 @@ def cutout(
 
 def interpmax(
     camera: CodedMaskCamera,
-    pos,
-    sky,
+    pos: tuple[int, int],
+    sky: npt.NDArray,
     interp_f: UpscaleFactor = UpscaleFactor(9, 9),
 ) -> tuple[float, float]:
     """

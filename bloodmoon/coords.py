@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 from .io import SimulationDataLoader
 from .types import BinsEquatorial
-from .types import BinsRectangular
 from .types import CoordEquatorial
 
 
@@ -87,7 +86,7 @@ def shift2angle(camera: "CodedMaskCamera", shift: float) -> float:
     Notes:
         - `shift` must have same physical dimension of mask-detector distance, i.e. [mm].
     """
-    return np.rad2deg(np.arctan(shift / camera.specs["mask_detector_distance"]))
+    return np.rad2deg(np.arctan(shift / camera.specs.mask_detector_distance))
 
 
 def angle2shift(camera: "CodedMaskCamera", angle: float) -> float:
@@ -106,7 +105,7 @@ def angle2shift(camera: "CodedMaskCamera", angle: float) -> float:
         If the angle is the declination of the sky-versor projection on the
         the xz plane, returns the shift in the x direction.
     """
-    return camera.specs["mask_detector_distance"] * np.tan(np.deg2rad(angle))
+    return camera.specs.mask_detector_distance * np.tan(np.deg2rad(angle))
 
 
 def pos2equatorial(
@@ -167,7 +166,7 @@ def shift2equatorial(
         shift_y,
         sdl.pointings["z"],
         sdl.pointings["x"],
-        camera.specs["mask_detector_distance"],
+        camera.specs.mask_detector_distance,
     )
 
 
@@ -239,7 +238,7 @@ def equatorial2shift(
         dec,
         sdl.pointings["z"],
         sdl.pointings["x"],
-        camera.specs["mask_detector_distance"],
+        camera.specs.mask_detector_distance,
     )
 
 
@@ -397,7 +396,7 @@ def shiftgrid2equatorial(
         *np.meshgrid(shift_xs, shift_ys),
         sdl.pointings["z"],
         sdl.pointings["x"],
-        camera.specs["mask_detector_distance"],
+        camera.specs.mask_detector_distance,
     )
 
 

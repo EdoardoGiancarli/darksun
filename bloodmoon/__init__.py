@@ -45,6 +45,8 @@ components or refer to the module docstrings.
 from .io import simulation
 from .io import simulation_files
 from .mask import codedmask
+from .mask import CodedMaskCamera
+from .mask import CodedMaskSpecs
 from .mask import count
 from .mask import cutout
 from .mask import decode
