@@ -369,9 +369,7 @@ def _ModelShiftFluence(  # noqa
             2D array representing the modeled sky reconstruction
         """
         return model_sky(camera, shift_x, shift_y, fluence, vignetting=vignetting, psfy=psfy)
-
-    # there is no cache here, hence no need to clean anything.
-    # we return a lambda anyway for compatibility with the other models
+    
     return f
 
 
@@ -426,7 +424,6 @@ def optimize(
     arg_sky: tuple[int, int],
     vignetting: bool = True,
     psfy: bool = True,
-    model: Literal["fast", "accurate"] = "fast",
 ) -> tuple[float, float, float]:
     """
     Performs the optimization to fit a point source model to sky image data.
