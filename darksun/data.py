@@ -18,7 +18,7 @@ from astropy.wcs.utils import fit_wcs_from_points
 from bloodmoon.types import CoordEquatorial
 from bloodmoon.coords import pos2equatorial
 from bloodmoon.io import SimulationDataLoader
-from bloodmoon.io import _exists_valid
+from bloodmoon.io import validate_fits
 from bloodmoon.mask import CodedMaskCamera
 
 from .types import LogEntry
@@ -236,14 +236,14 @@ def get_data(
     """
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
-    if _exists_valid(filepath):
+    if validate_fits(filepath):
         sdl = DataLoader(
             filepath=filepath,
             E_min=E_min,
             E_max=E_max,
             coords=coords,
         )
-        return sdl
+    return sdl
 
 
 @dataclass(frozen=True)
@@ -321,7 +321,7 @@ def get_catalogue(
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
     
-    if _exists_valid(filepath):
+    if validate_fits(filepath):
         if n and any((F_min, F_max)):
             raise ValueError("Specify either 'n' OR the flux range to filter the catalogue.")
         
@@ -331,7 +331,7 @@ def get_catalogue(
             F_min=F_min,
             F_max=F_max,
         )
-        return sdl
+    return sdl
 
 
 def fit_WCS(

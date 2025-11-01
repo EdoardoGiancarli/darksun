@@ -29,7 +29,7 @@ def bkg_smoothing(
     the detector sensitivity array zeroes to avoid boundary effects.
 
     The kernel has a default size along `(y, x)` of `(11 x 7)` at upscaling `(1, 1)`, equal
-    to a physical size of `(11 * camera.specs[mask_deltay], 7 * camera.specs[mask_deltax]) mm`
+    to a physical size of `(11 * camera.specs.mask_deltay, 7 * camera.specs.mask_deltax) mm`
     for the LEM-X camera modules. Inside the method, the kernel size is automatically
     adjusted to the camera upscaling.
 

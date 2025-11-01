@@ -52,7 +52,6 @@ from .show import distr_plot
 from .show import map4image
 from .show import image_plot
 from .show import slices_plot
-from .show import reconstruction_plot
 from .show import skyfield_map
 
 # from .stats import __all__

@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import pickle
 
-from bloodmoon.io import _exists_valid
+from bloodmoon.io import validate_fits
 
 from .types import LogEntry
 from .data import Log
@@ -264,12 +264,12 @@ def load_database(filepath: str | Path) -> tuple[Log, Log]:
     
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
-    if _exists_valid(filepath):
+    if validate_fits(filepath):
         print("# Loading data...")
         logA = load_data(filepath, ext=1)
         logB = load_data(filepath, ext=2)
         print("# Loading completed!")
-        return logA, logB
+    return logA, logB
 
 
 def load_sky(filepath: str | Path) -> tuple[NDArray, NDArray]:
@@ -292,11 +292,11 @@ def load_sky(filepath: str | Path) -> tuple[NDArray, NDArray]:
     
     if not isinstance(filepath, Path):
         filepath = Path(filepath)
-    if _exists_valid(filepath):
+    if validate_fits(filepath):
         print("# Loading data...")
         sky, snr = load_data(filepath)
         print("# Loading completed!")
-        return sky, snr
+    return sky, snr
 
 
 def load_pickle(filepath: str | Path) -> object:
@@ -310,12 +310,12 @@ def load_pickle(filepath: str | Path) -> object:
     Returns:
         output (object): Loaded object.
     """
-    if _exists_valid(filepath):
+    if validate_fits(filepath):
         print("# Loading data...")
         with open(filepath, "rb") as handle:
             data = pickle.load(handle)
         print("# Loading completed!")
-        return data
+    return data
 
 
 # end

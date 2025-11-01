@@ -3,21 +3,16 @@ IROS output data management and computation.
 """
 
 import numpy as np
-from numpy.typing import NDArray
-from scipy.signal import convolve
 from pandas import DataFrame
 from astropy.io.fits.fitsrec import FITS_rec
 
-from bloodmoon.mask import _detector_footprint
 from bloodmoon.mask import CodedMaskCamera
 from bloodmoon.coords import shift2equatorial
 from bloodmoon.coords import equatorial2shift
 from bloodmoon.coords import shift2pos
 from bloodmoon.coords import shift2angle
-from bloodmoon.images import _shift
-from bloodmoon.images import _rbilinear
-from bloodmoon.optim import _wfm_psfy_kernel_cached
-from bloodmoon.optim import apply_vignetting
+from bloodmoon.optim import _detector_footprint_cached
+from bloodmoon.optim import _mask_pattern_projection
 
 from .types import LogEntry
 from .data import DataLoader
@@ -105,7 +100,7 @@ def compute_parameters(
     # retrieve observation data (px area [cm^2], camera exposure [s])
     UPX, UPY = camera.upscale_f
     PX_AREA = (
-        1e-2 * camera.specs["mask_deltax"] * camera.specs["mask_deltay"] / np.prod((UPX, UPY))
+        1e-2 * camera.specs.mask_deltax * camera.specs.mask_deltay / np.prod((UPX, UPY))
     )
     EXPOSURE = sdl.header["EXPOSURE"]
     
@@ -136,33 +131,15 @@ def compute_parameters(
     
     def effective_area(shiftx: float, shifty: float) -> float:
         """Computes detector area seen by the source."""
-
-        def process_mask(sx: float, sy: float) -> NDArray:
-            """Process mask pattern."""
-            mask_maybe_vignetted = apply_vignetting(
-                camera, camera.mask, sx, sy,
-            ) if vignetting else camera.mask
-            
-            mask_maybe_vignetted_maybe_psfy = convolve(
-                mask_maybe_vignetted, _wfm_psfy_kernel_cached(camera), mode="same",
-            ) if psfy else mask_maybe_vignetted
-            return mask_maybe_vignetted_maybe_psfy
-    
-        n, m = camera.shape_sky
-        proj = np.zeros(camera.shape_detector)
-        components = _rbilinear(
-            shiftx, shifty, camera.bins_sky.x, camera.bins_sky.y
+        # mask pattern processing
+        sg = _mask_pattern_projection(
+            camera, shiftx, shifty, vignetting, psfy,
         )
-        i_min, i_max, j_min, j_max = _detector_footprint(camera)
-
-        for (c_i, c_j), weight in components.items():
-            r, c = (n // 2 - c_i), (m // 2 - c_j)
-            mask_p = process_mask(camera.bins_sky.x[c_j], camera.bins_sky.y[c_i])
-            sg = _shift(mask_p, (r, c))
-            proj += sg[i_min:i_max, j_min:j_max] * weight
-        proj *= camera.bulk
-
-        return proj.sum() * PX_AREA
+        # extract mask pattern projection on detector
+        i_min, i_max, j_min, j_max = _detector_footprint_cached(camera)
+        detector = sg[i_min:i_max, j_min:j_max]
+        detector *= camera.bulk
+        return detector.sum() * PX_AREA
 
     # compute parameters
     y, x = zip(
