@@ -13,6 +13,28 @@ __all__ = [
 ]
 
 
+def _apply_median_filter(
+    detector: NDArray,
+    bulk: NDArray,
+    axis: int,
+    size: int,
+) -> NDArray:
+    """
+    Collapses the detector along the specified axis and
+    applies a 1D median filter of the given size.
+    """
+    # collapse detector and bulk
+    collapsed_det = detector.sum(axis=axis)
+    collapsed_bulk = bulk.sum(axis=axis)
+    # bulk zeros are ignored to avoid boundary effects
+    filtered = collapsed_det.copy()
+    bulk_mask = (collapsed_bulk > 0)
+    filtered[bulk_mask] = median_filter(
+        collapsed_det[bulk_mask], size=size, mode='nearest',
+    )
+    return filtered
+
+
 def bkg_smoothing(
     detector: NDArray,
     camera: CodedMaskCamera,
@@ -60,34 +82,19 @@ def bkg_smoothing(
         ).
     """
     # define median filter kernel size at given camera upscaling
-    UPX, UPY = camera.upscale_f
     KERNEL_SIZE = {
-        'y': int(kernelsize_y * UPY),
-        'x': int(kernelsize_x * UPX),
+        'y': int(kernelsize_y * camera.upscale_f.y),
+        'x': int(kernelsize_x * camera.upscale_f.x),
     }
-    
-    def apply_filter(axis: int, size: int) -> NDArray:
-        """
-        Collapses the detector along the specified axis and
-        applies a 1D median filter of the given size.
-        """
-        # collapse detector and bulk
-        collapsed_det = detector.sum(axis=axis)
-        collapsed_bulk = camera.bulk.sum(axis=axis)
-        # bulk zeros are ignored to avoid boundary effects
-        bulk_mask = (collapsed_bulk > 0)
-        filtered = collapsed_det.copy()
-        filtered[bulk_mask] = median_filter(
-            collapsed_det[bulk_mask], size=size, mode='nearest',
-        )
-        return filtered
-    
     # apply filter along the two axes independently
     # ! the smoothing is performed by collapsing the
     #   detector along the opposing direction
-    smooth_y = apply_filter(axis=1, size=KERNEL_SIZE['y'])
-    smooth_x = apply_filter(axis=0, size=KERNEL_SIZE['x'])
-
+    smooth_y = _apply_median_filter(
+        detector, camera.bulk, axis=1, size=KERNEL_SIZE['y'],
+    )
+    smooth_x = _apply_median_filter(
+        detector, camera.bulk, axis=0, size=KERNEL_SIZE['x'],
+    )
     # restore 2D profile through broadcasting (as suggested by np.tile doc)
     # - the smoothed array is masked with the bulk to remove artefacts
     # - the filtered array is rescaled to conserve the original counts

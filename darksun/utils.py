@@ -4,13 +4,14 @@ General utility functions for the darksun package.
 
 from typing import Any, Callable, Generator
 from contextlib import contextmanager
-import time
+from pathlib import Path
 from datetime import datetime
+import time
 
 import numpy as np
 
 __all__ = [
-    "timer", "benchmark_func",
+    "timer", "benchmark_func", "savefig_to",
 ]
 
 
@@ -88,6 +89,42 @@ def benchmark_func(
     average, error = np.mean(rep_time_), np.std(rep_time_)
 
     return average, error, result
+
+
+def savefig_to(
+    figpath: str | Path,
+    name: str,
+    frmt: str = 'png',
+    overwrite: bool = False,
+) -> str | Path | None:
+    """
+    Creates the filepath to save a Figure with the chosen format.
+    The func checks if the image file already exists. If so, and
+    `overwrite` is False, `None` is returned to avoid overwriting.
+
+    Args:
+        figpath (str | Path):
+            Directory path to save the image file, e.g., `'../data'`.
+        name (str):
+            Name of the image file, e.g., `'img_data`.
+        frmt (str, optional (default=`'png'`)):
+            Format with which the image will be saved.
+        overwrite (bool, optional (default=`False`)):
+            If `True`, the already saved image will be overwrited.
+
+    Returns:
+        output (str | Path | None):
+            Path for saving the image file. If the file is already
+            present and `overwrite` is False, `None` is returned.
+    """
+    def is_img(filepath: Path) -> bool:
+        """Checks if a file has been already saved."""
+        return filepath.is_file()
+    
+    filepath = f'{figpath}/{name}.{frmt}'
+    if is_img(Path(filepath)) and not overwrite:
+        return None
+    return filepath
 
 
 # end
