@@ -4,6 +4,7 @@ IROS output data management and computation.
 
 import numpy as np
 from pandas import DataFrame
+from astropy.io.fits import Column, BinTableHDU
 from astropy.io.fits.fitsrec import FITS_rec
 
 from bloodmoon.mask import CodedMaskCamera
@@ -245,7 +246,7 @@ def catalogue_comparison(
     catalogue: CatalogueLoader,
     sdl: DataLoader,
     camera: CodedMaskCamera,
-    screening: bool = True,
+    screening: bool = False,
 ) -> Log:
     """
     Compares the reconstructed IROS data with the catalogue,
@@ -266,7 +267,7 @@ def catalogue_comparison(
             Data container instance for chosen LEM-X coded-mask camera.
         camera (CodedMaskCamera):
             CodedMaskCamera instance used for imaging and reconstruction.
-        screening (bool, optional (default=`True`)):
+        screening (bool, optional (default=`False`)):
             If `True`, the repeating sources in the database
             are screened by significance comparison.
 
@@ -277,7 +278,6 @@ def catalogue_comparison(
     """
     def extend_catalogue(rec: FITS_rec) -> FITS_rec:
         """Adds sources local frame angular coords to catalogue."""
-        from astropy.io.fits import Column, BinTableHDU
         extended = [
             Column(name=name, format=rec.columns[name].format, array=rec[name])
             for name in rec.names
@@ -334,20 +334,26 @@ def catalogue_comparison(
         if not any(associated_batch):
             sourceID = f'lemx-{log.name.lower()}S{KEYMAP['NEW_ID']}'
             flux = -1.0
+            sourceID_brightest = sourceID
             KEYMAP['NEW_ID'] += 1
         elif len(associated_batch) == 1:
             sourceID = associated_batch['ID'][0]
             flux = associated_batch['FLUX'][0]
+            sourceID_brightest = sourceID
         else:
             arg = closest_source(associated_batch)
             sourceID = associated_batch['ID'][arg]
             flux = associated_batch['FLUX'][arg]
+            arg_brightest = brightest_source(associated_batch)
+            sourceID_brightest = associated_batch['ID'][arg_brightest]
 
-        return sourceID, flux
+        return sourceID, flux, sourceID_brightest
     
     # update Log
     params = (
-        LogEntry('ID', '20A', ''), LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
+        LogEntry('ID', '20A', ''),
+        LogEntry('catalogue_flux', 'D', 'ph/cm2/s'),
+        LogEntry('ID_brightest', '20A', ''),
     )
     log.insert(params)
 
@@ -357,8 +363,10 @@ def catalogue_comparison(
         log.log['shift_x'], log.log['dshift_x'],
         log.log['shift_y'], log.log['dshift_y'],
     ):
-        sourceID, flux = candidate_association(sx, dsx, sy, dsy)
-        log.update(values=(('ID', sourceID), ('catalogue_flux', flux)))
+        sourceID, flux, sourceID_brightest = candidate_association(sx, dsx, sy, dsy)
+        log.update(
+            values=(('ID', sourceID), ('catalogue_flux', flux), ('ID_brightest', sourceID_brightest))
+        )
     
     # sources screening based on significance
     if screening:

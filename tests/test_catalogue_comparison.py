@@ -95,6 +95,7 @@ class TestCatalogueComparison(TestCase):
             catalogue=catalogue,
             sdl=self.sdl,
             camera=self.wfm,
+            screening=True,
         )
         #print(log.to_dataframe())
         np.testing.assert_array_equal(
