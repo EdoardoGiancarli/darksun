@@ -15,7 +15,7 @@ __author__ = "Edoardo Giancarli"
 
 from .types import LogEntry
 from .types import Tag
-# from .types import Candidate               (when defined version)
+from .types import Candidate
 
 # from .analyze import run_IROS              (when defined version)
 from .analyze import compute_parameters
@@ -26,6 +26,7 @@ from .data import get_data
 from .data import get_catalogue
 from .data import fit_WCS
 
+from .filtering import select_source_photons
 from .filtering import filter_data
 from .filtering import source_filter
 from .filtering import flux_filter
@@ -40,10 +41,14 @@ from .images import upscale
 from .images import downscale
 from .images import crop
 from .images import unframe
+from .images import collapse_view
 from .images import make_sky
 from .images import WFM_composition
 
 from .optim import bkg_smoothing
+from .optim import get_candidates
+from .optim import retrieve_detector
+from .optim import detector_smoothing
 #from .optim import iros                     (when defined version)
 
 from .show import map4plot
@@ -54,7 +59,16 @@ from .show import image_plot
 from .show import slices_plot
 from .show import skyfield_map
 
-# from .stats import __all__
+from .benchmarking import config_distr_limits
+from .benchmarking import pixels_angular_resolution
+from .benchmarking import psf_extension
+from .benchmarking import crop_source_psf
+from .benchmarking import source_angular_coords
+from .benchmarking import source_fluence
+from .benchmarking import extract_sources_info
+from .benchmarking import data_DF
+from .benchmarking import reconstructed_sources_profiles
+from .benchmarking import reconstruction_sources_heatmaps
 
 from .utils import timer
 from .utils import benchmark_func

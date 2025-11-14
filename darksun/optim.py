@@ -7,9 +7,13 @@ from numpy.typing import NDArray
 from scipy.ndimage import median_filter
 
 from bloodmoon.mask import CodedMaskCamera
+from bloodmoon.optim import model_shadowgram
+
+from .types import Candidate
+from .data import Log
 
 __all__ = [
-    "bkg_smoothing",
+    "bkg_smoothing", "get_candidates", "retrieve_detector", "detector_smoothing",
 ]
 
 
@@ -66,9 +70,9 @@ def bkg_smoothing(
             Input coded-mask camera detector image.
         camera (CodedMaskCamera):
             Instance with detector geometry info.
-        kernelsize_y (int, optional (default=`7`)):
+        kernelsize_y (int, optional (default=`11`)):
             Kernel size along the y axis (upscaling 1).
-        kernelsize_x (int, optional (default=`11`)):
+        kernelsize_x (int, optional (default=`7`)):
             Kernel size along the x axis (upscaling 1).
     
     Returns:
@@ -102,6 +106,153 @@ def bkg_smoothing(
     smoothed *= (camera.bulk > 0)
     smoothed *= (detector.sum() / smoothed.sum())
 
+    return smoothed
+
+
+def get_candidates(
+    log: Log,
+    thresh: int | float,
+    verbose: bool = True,
+) -> tuple[Candidate, ...]:
+    """
+    Extracts the source candidates from the IROS log with a significance lower than
+    the input threshold. This function finds the index of the first log entry where
+    'snr' is strictly less than the provided threshold, and then returns all prior
+    entries as Candidate objects.
+    This assumes that the log data is sorted by 'snr' in descending order.
+
+    Args:
+        log (Log):
+            The Log object containing the observation data. The `log` is expected
+            to contain at least the sources shifts coords in [mm], the fluence [ph],
+            the extracted significance and the association ID.
+        thresh (int | float):
+            The minimum Significance-to-Noise Ratio (SNR) required for an entry to
+            be considered a candidate. Entries with `snr >= thresh` are returned.
+        verbose (bool, optional (default=`True`)):
+            If True, prints diagnostic information about the number of candidates
+            found and the SNR values around the threshold index.
+
+    Returns:
+        output (tuple[Candidate, ...]):
+            List of source candidates with significance higher than threshold.
+
+    Raises:
+        IndexError: If all sources have significance below the input threshold.
+    """
+    snrs = np.array(log.log['snr'])
+
+    if np.all(snrs < thresh):
+        raise IndexError("All sources have significance below the input threshold.")
+
+    idx: int = np.argwhere(snrs < thresh)[0, 0]
+    candidates: tuple[Candidate, ...] = tuple(
+        Candidate(sx, sy, f, signf) for sx, sy, f, signf in zip(
+            log.log['shift_x'][:idx],
+            log.log['shift_y'][:idx],
+            log.log['fluence'][:idx],
+            log.log['snr'][:idx],
+        )
+    )
+    if verbose:
+        print(
+            f"Number of candidates with SNR > {thresh}: {len(candidates)}\n"
+            f"Last: {log.log['ID'][idx - 1]} (snr = {log.log['snr'][idx - 1]:.2f})\n"
+            f"Following: {log.log['ID'][idx]} (snr = {log.log['snr'][idx]:.2f})\n"
+        )
+    
+    return candidates
+
+
+def retrieve_detector(
+    candidates: tuple[Candidate, ...],
+    camera: CodedMaskCamera,
+    vignetting: bool,
+    psfy: bool,
+) -> NDArray:
+    """
+    Generates the reconstructed detector image by summing the individual, fluence-weighted
+    model shadowgrams of all retrieved source candidates. This process effectively
+    simulates the detector counts produced by the list of identified sources.
+
+    Args:
+        candidates (tuple[Candidate, ...]):
+            Tuple of Candidate objects with candidates parameters info.
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance with instrument geometry.
+        vignetting (bool):
+            Flag to include vignetting effects in the source modelling.
+        psfy (bool):
+            Flag to include detector spatial resolution effects in the source modelling.
+
+    Returns:
+        output (NDArray):
+            A 2D NumPy array representing the final detector image
+            based on the parameters of the retrieved candidates.
+    """
+    detector = np.zeros(camera.shape_detector)
+    for (sx, sy, f, _) in candidates:
+        sg = model_shadowgram(
+            camera=camera,
+            shift_x=sx,
+            shift_y=sy,
+            vignetting=vignetting,
+            psfy=psfy,
+        )
+        detector += (f * sg)
+    return detector
+
+
+def detector_smoothing(
+    detector: NDArray,
+    candidates: tuple[Candidate, ...],
+    camera: CodedMaskCamera,
+    vignetting: bool,
+    psfy: bool,
+    kernelsize_y: int = 11,
+    kernelsize_x: int = 7,
+) -> NDArray:
+    """
+    Process the observed detector image by applying a median smoothing of the background.
+
+    Args:
+        detector (NDArray):
+            Input coded-mask camera detector image.
+        candidates (tuple[Candidate, ...]):
+            Tuple of Candidate objects with candidates parameters info.
+        camera (CodedMaskCamera):
+            CodedMaskCamera instance with instrument geometry.
+        vignetting (bool):
+            Flag to include vignetting effects in the source modelling.
+        psfy (bool):
+            Flag to include detector spatial resolution effects in the source modelling.
+        kernelsize_y (int, optional (default=`11`)):
+            Kernel size along the y axis (upscaling 1).
+        kernelsize_x (int, optional (default=`7`)):
+            Kernel size along the x axis (upscaling 1).
+
+    Returns:
+        output (NDArray):
+            A 2D NumPy array representing the final detector image
+            based on the parameters of the retrieved candidates.
+    """
+    # get residual detector image
+    retrieved = retrieve_detector(
+        candidates=candidates,
+        camera=camera,
+        vignetting=vignetting,
+        psfy=psfy,
+    )
+    res_detector = detector - retrieved
+    # perform smoothing on residual detector image
+    res_smoothed = bkg_smoothing(
+        detector=res_detector,
+        camera=camera,
+        kernelsize_y=kernelsize_y,
+        kernelsize_x=kernelsize_x,
+    )
+    # get smoothed detector image
+    smoothed = detector - res_smoothed
     return smoothed
 
 

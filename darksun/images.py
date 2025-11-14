@@ -18,7 +18,7 @@ from bloodmoon.optim import model_sky
 
 __all__ = [
     "upscale", "downscale", "crop", "unframe",
-    "make_sky", "WFM_composition",
+    "collapse_view", "make_sky", "WFM_composition",
 ]
 
 
@@ -255,6 +255,29 @@ def unframe(
         return slice(i, j)
 
     return data[*tuple(map(config_slice, unframe_f))]
+
+
+def collapse_view(arr: NDArray) -> tuple[NDArray, NDArray]:
+    """
+    Collapses input 2D array by adding the elements along
+    one axis, for both the (x, y) array axes.
+
+    Args:
+        arr (NDArray): Input 2D array.
+
+    Returns:
+        output (tuple[NDArray, NDArray]):
+            - collapsed array along the y axis
+            - collapsed array along the x axis
+    
+    ## Notes:
+        - if `arr.shape = (n, m)`, the collapsed array
+          along y has length `m`, while the collapsed
+          array along x has length `n`.
+    """
+    y_collps = np.sum(arr, axis=0)
+    x_collps = np.sum(arr, axis=1)
+    return y_collps, x_collps
 
 
 def make_sky(

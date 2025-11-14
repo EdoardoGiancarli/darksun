@@ -10,8 +10,42 @@ from astropy.io.fits.fitsrec import FITS_rec
 from bloodmoon.types import CoordEquatorial
 
 __all__ = [
-    "filter_data", "flux_filter", "source_filter", "filter_catalogue",
+    "select_source_photons", "filter_data", "flux_filter",
+    "source_filter", "filter_catalogue",
 ]
+
+
+def select_source_photons(
+    data: FITS_rec,
+    coords: CoordEquatorial | Sequence[CoordEquatorial],
+    verbose: bool = True,
+) -> FITS_rec:
+    """
+    Selects the photon events in the input `data` relative to
+    the selected sources RA/Dec coords.
+
+    Args:
+        data (FITS_rec):
+            Input simulated data container.
+        coords (CoordEquatorial | Sequence[CoordEquatorial]):
+            Input photons RA/Dec in [deg] to select from `data`.
+        verbose (bool, optional (default=`True`)):
+            If `True`, prints out the selected events number with
+            respect to the total number of photons in `data`.
+    
+    Returns:
+        output (FITS_rec): Output filtered data container.
+    """
+    mask = np.ones(len(data), dtype=bool)
+    coords_ = (coords,) if isinstance(coords, CoordEquatorial) else coords
+    for c in coords_:
+        mask &= (
+            (np.isclose(data['RA'], c.ra) & np.isclose(data['DEC'], c.dec))
+        )
+    selected = data[mask]
+    if verbose:
+        print(f'Selected {len(selected)}/{len(data)} photons.')
+    return selected
 
 
 def filter_data(
@@ -36,7 +70,7 @@ def filter_data(
             Input photons RA/Dec in [deg] to filter out.
     
     Returns:
-        output: Output filtered data container.
+        output (FITS_rec): Output filtered data container.
     """
     mask = np.ones(len(data), dtype=bool)
 
@@ -69,7 +103,7 @@ def flux_filter(
             Maximum flux range in [ph/cm2/s] for the data filtering.
     
     Returns:
-        output: Output filtered data container.
+        output (FITS_rec): Output filtered data container.
     """
     mask = np.ones(len(data), dtype=bool)
     if F_min is not None:
