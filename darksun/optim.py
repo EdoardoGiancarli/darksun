@@ -140,12 +140,12 @@ def get_candidates(
     Raises:
         IndexError: If all sources have significance below the input threshold.
     """
-    snrs = np.array(log.log['snr'])
-
-    if np.all(snrs < thresh):
+    _snrs = np.array(log.log['snr'])
+    if np.all(_snrs < thresh):
         raise IndexError("All sources have significance below the input threshold.")
 
-    idx: int = np.argwhere(snrs < thresh)[0, 0]
+    _idxs: NDArray = np.argwhere(_snrs < thresh)
+    idx: int = _idxs[0, 0] if _idxs.size > 0 else None
     candidates: tuple[Candidate, ...] = tuple(
         Candidate(sx, sy, f, signf) for sx, sy, f, signf in zip(
             log.log['shift_x'][:idx],
@@ -155,11 +155,17 @@ def get_candidates(
         )
     )
     if verbose:
-        print(
-            f"Number of candidates with SNR > {thresh}: {len(candidates)}\n"
-            f"Last: {log.log['ID'][idx - 1]} (snr = {log.log['snr'][idx - 1]:.2f})\n"
-            f"Following: {log.log['ID'][idx]} (snr = {log.log['snr'][idx]:.2f})\n"
-        )
+        if idx is not None:
+            print(
+                f"Number of candidates with SNR > {thresh}: {len(candidates)}\n"
+                f"Last: {log.log['ID'][idx - 1]} (snr = {log.log['snr'][idx - 1]:.2f})\n"
+                f"Following: {log.log['ID'][idx]} (snr = {log.log['snr'][idx]:.2f})\n"
+            )
+        else:
+            print(
+                f"All candidates have SNR higher than: {thresh}\n"
+                f"Last: {log.log['ID'][-1]} (snr = {log.log['snr'][-1]:.2f})\n"
+            )
     
     return candidates
 
