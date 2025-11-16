@@ -14,6 +14,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
+from bloodmoon.coords import shift2angle
 from bloodmoon.mask import CodedMaskCamera
 
 from .types import Tag
@@ -791,10 +792,10 @@ def skyfield_map(
 ) -> None:
     """
     Displays the reconstructed sources in the sky-grid, optionally
-    specifying the IDs, the RA/Dec coordinates and the shifts errors.
+    specifying the IDs, the RA/Dec coordinates and the coords errors.
 
     The input `log` container must have at least the sources camera
-    local-frame sky-shifts coords (in [mm]).
+    local-frame sky-angular coords (in [deg]).
 
     Args:
         log (Log):
@@ -809,18 +810,22 @@ def skyfield_map(
             (the log must have the coords entries stored inside).
         show_errbox (bool, optional (default=`False`)):
             If `True`, the source pos errorboxes are displayed
-            (the log must have the shifts errors stored inside).
+            (the log must have the angular coords errors stored inside).
         save_to (str | Path | None, optional (default=`None`)):
             Path to save the figure.
     """
-    skyx, skyy = camera.bins_sky
+    _skyx, _skyy = camera.bins_sky
+    skyx, skyy = map(
+        lambda x: shift2angle(camera, x),
+        (_skyx, _skyy),
+    )
     SETUP = {
-        'x': 'shift_x',
-        'err_x': 'dshift_x',
-        'y': 'shift_y',
-        'err_y': 'dshift_y',
-        'xlabel': 'x bins [mm]',
-        'ylabel': 'y bins [mm]',
+        'x': 'angle_x',
+        'err_x': 'dangle_x',
+        'y': 'angle_y',
+        'err_y': 'dangle_y',
+        'xlabel': 'local-frame $\\theta_{x}$ [deg]',
+        'ylabel': 'local-frame $\\theta_{y}$ [deg]',
         'title': f'{log.name} SkyMap-Grid',
 
         'ancor': (skyx[0], skyy[0]),
@@ -828,6 +833,7 @@ def skyfield_map(
         'height': skyy[-1] - skyy[0],
         'color': 'k',
         'txt_color': 'white',
+        'rot': 35,
         'errbox_color': 'OrangeRed',
         'alpha': 0.5,
 
@@ -866,24 +872,23 @@ def skyfield_map(
                     log.log[SETUP['y']],
                 ):
                     ax.text(
-                        x - 5, y - 5, name, color=SETUP['txt_color'],
-                        fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                        x + 0.475, y + 0.385, name, color=SETUP['txt_color'], rotation=SETUP['rot'],
+                        fontsize=0.95*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
                     )
             if show_coords:
-                for name, x, y, ra, dec in zip(
-                    log.log['ID'],
+                for x, y, ra, dec in zip(
                     log.log[SETUP['x']],
                     log.log[SETUP['y']],
                     log.log['ra'],
                     log.log['dec'],
                 ):
                     ax.text(
-                        x - 18, y + 5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
-                        fontsize=0.9*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+                        x - 5, y - 0.5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
+                        rotation=SETUP['rot'], fontsize=0.95*PLOTPARAMS['txt_body_fs'],
+                        fontweight=PLOTPARAMS['txt_fw'],
                     )
             if show_errbox:
-                for name, x, dx, y, dy in zip(
-                    log.log['ID'],
+                for x, dx, y, dy in zip(
                     log.log[SETUP['x']],
                     log.log[SETUP['err_x']],
                     log.log[SETUP['y']],
@@ -892,7 +897,7 @@ def skyfield_map(
                     ax.add_patch(
                         Rectangle(
                             xy=(x - dx, y - dy), width=2 * dx, height=2 * dy,
-                            linewidth=0.1, edgecolor=SETUP['errbox_color'], facecolor=None,
+                            linewidth=0.2, edgecolor=SETUP['errbox_color'], facecolor=None,
                         )
                     )
 
