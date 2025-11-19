@@ -16,8 +16,8 @@ __all__ = [
 
 
 def select_source_photons(
-    data: FITS_rec,
     coords: CoordEquatorial | Sequence[CoordEquatorial],
+    data: FITS_rec,
     verbose: bool = True,
 ) -> FITS_rec:
     """
@@ -25,10 +25,10 @@ def select_source_photons(
     the selected sources RA/Dec coords.
 
     Args:
-        data (FITS_rec):
-            Input simulated data container.
         coords (CoordEquatorial | Sequence[CoordEquatorial]):
             Input photons RA/Dec in [deg] to select from `data`.
+        data (FITS_rec):
+            Input simulated data container.
         verbose (bool, optional (default=`True`)):
             If `True`, prints out the selected events number with
             respect to the total number of photons in `data`.
