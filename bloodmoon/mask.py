@@ -515,6 +515,9 @@ def variance(
         - See also:
             * https://github.com/yuri-evangelista/CodedMasks/blob/26a5bb2fa08e37c645f85d55a3a1ef038fe7497d/mask_utils/imaging_utils.py#L134
     """
+    # NOTE: VARIANT VERSION wrt `main`, which is in SYNC with original repo
+    #   - DIFF: the balanced var array is clipped
+
     # retrieve total detector counts and total active elements
     sum_det, sum_bulk = map(np.sum, (detector, camera.bulk))
 
@@ -550,6 +553,9 @@ def snratio(
     Returns:
         NDArray: Signal-to-noise ratio calculated as sky/sqrt(variance).
     """
+    # NOTE: VARIANT VERSION wrt `main`, which is in SYNC with original repo
+    #   - DIFF: the balanced var array is NOT modified with `_unframe()` to
+    #           NOT introduce artificial zero values in the sky SNR distr.
     return sky / np.sqrt(var)
 
 
