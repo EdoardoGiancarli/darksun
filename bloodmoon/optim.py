@@ -9,7 +9,7 @@ This module provides algorithms for:
 """
 
 from functools import lru_cache
-from typing import Callable, Iterable, Literal
+from typing import Callable, Iterable
 import warnings
 
 from numpy import typing as npt
@@ -171,7 +171,11 @@ def apply_vignetting(
           of the effect
     """
     def project_mask_thickness(shift: float, bin_dim: float) -> float:
-        """Corrects the mask thickness projection."""
+        """
+        Projects the mask thickness on the mask binning elements, and
+        corrects the projection value to allows for correct erosion
+        of the mask physical elements starting from the pixels' edges.
+        """
         # since the mask detector distance is defined as the distance between the
         # detector top and the mask top, erosion shall cut on the left-side of the
         # shadowgram when sources have negative `angle`.
@@ -183,6 +187,7 @@ def apply_vignetting(
         shift_px = shift / bin_dim
         # the mask thickness projection has to be corrected by considering the
         # erosion pixel start point, due to the discretisation of the projection
+        # https://github.com/yuri-evangelista/CodedMasks/blob/main/mask_050_1040x17/new_erosion_20251024.ipynb
         bin_erosion_start = (1.0 - abs(shift_px - int(shift_px))) * bin_dim
         return proj + np.sign(proj) * bin_erosion_start
     
