@@ -76,8 +76,8 @@ def _wfm_psfy(x: npt.NDArray) -> npt.NDArray:
 def _wfm_psfy_kernel(camera: CodedMaskCamera) -> npt.NDArray:
     """
     Returns PSF normalised convolution kernel.
-    At present, it ignores the `x` direction, since PSF characteristic lenght is much shorter
-    than typical bin size, even at moderately large upscales.
+    At present, it ignores the `x` direction, since PSF characteristic lenght
+    is much shorter than typical bin size, even at moderately large upscales.
 
     Args:
         camera: a CodedMaskCamera object.
@@ -424,7 +424,8 @@ def optimize(
     This function performs the optimization by simultaneously fit the candidate
     position and fluence. The starting position is inferred from the candidate
     pixel position, while the starting fluence is represented by the counts at
-    the candidate extracted pixel indexes.
+    the candidate extracted pixel indexes. If the `psfy` effect is active, the
+    fluence start value is corrected for the camera coding power.
 
     Args:
         camera: CodedMaskCamera instance containing detector and mask parameters
@@ -447,12 +448,13 @@ def optimize(
         camera.specs.mask_deltax / camera.upscale_f.x,
         camera.specs.mask_deltay / camera.upscale_f.y,
     )
+    camera_coding_power = 0.85
 
     model_shift_flux = _ModelShiftFluence(camera, arg_sky, vignetting, psfy)
     sx_start, sy_start = pos2shift(camera, *arg_sky)
     sky_peak = sky[*arg_sky]
     fluence_start = (
-        sky_peak / 0.85 if psfy else sky_peak
+        sky_peak / camera_coding_power if psfy else sky_peak
     )
     sky_ydata = process_skyimg(camera, sky, arg_sky)
     
