@@ -233,9 +233,9 @@ def _mask_pattern_projection(
         * lastly, the detector sp. res. is applied
 
     Args:
+        camera: CodedMaskCamera instance containing all geometric parameters
         shift_x: Source position x-coordinate in sky-shift space (mm)
         shift_y: Source position y-coordinate in sky-shift space (mm)
-        camera: CodedMaskCamera instance containing all geometric parameters
         vignetting: simulates vignetting effects
         psfy: simulates detector reconstruction effects
 
@@ -281,9 +281,9 @@ def model_shadowgram(
     - PSF convolution over y axis
 
     Args:
+        camera: CodedMaskCamera instance containing all geometric parameters
         shift_x: Source position x-coordinate in sky-shift space (mm)
         shift_y: Source position y-coordinate in sky-shift space (mm)
-        camera: CodedMaskCamera instance containing all geometric parameters
         vignetting: simulates vignetting effects
         psfy: simulates detector reconstruction effects
 
@@ -323,10 +323,10 @@ def model_sky(
     - Flux scaling
 
     Args:
+        camera: CodedMaskCamera instance containing all geometric parameters
         shift_x: Source position x-coordinate in sky-shift space (mm)
         shift_y: Source position y-coordinate in sky-shift space (mm)
         fluence: Source intensity/fluence value
-        camera: CodedMaskCamera instance containing all geometric parameters
         vignetting: simulates vignetting effects
         psfy: simulates detector reconstruction effects
 
