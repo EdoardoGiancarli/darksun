@@ -2,6 +2,8 @@
 IROS output data management and computation.
 """
 
+from functools import lru_cache
+
 import numpy as np
 from pandas import DataFrame
 from astropy.io.fits import Column, BinTableHDU
@@ -21,7 +23,8 @@ from .data import CatalogueLoader
 from .data import Log
 
 __all__ = [
-    "run_IROS", "compute_parameters", "data_screening", "catalogue_comparison",
+    "run_IROS", "eq_coords_errors", "camera_area_unit", "get_effective_area",
+    "compute_parameters", "data_screening", "catalogue_comparison",
 ]
 
 
@@ -63,13 +66,92 @@ def run_IROS(
     raise NotImplementedError
 
 
+def eq_coords_errors(
+    camera: CodedMaskCamera,
+    shiftx: float,
+    dshiftx: float,
+    shifty: float,
+    dshifty: float,
+) -> tuple[float, float]:
+    """Computes RA/DEC source errors."""
+    # TODO: compute errs from transform
+    raise NotImplementedError
+
+
+@lru_cache(maxsize=1)
+def camera_area_unit(camera: CodedMaskCamera) -> float:
+    """
+    Computes the detector unit area value in [cm^2], corrected for
+    the camera layers and detectors efficiency photons absorption.
+
+    Args:
+        camera (CodedMaskCamera): Instance with camera geometry info.
+    
+    Returns:
+        output (float): Camera pixel area value in [cm^2].
+    """
+    # LEM-X camera layers and detector efficiency correction factors
+    # here we consider the absorption action of (photons absorption @ 8keV):
+    #   - 12.5um Kapton layer (coded-mask camera MLI)
+    #   - 25um Be layer (micro-meteoroid filter)
+    #   - 300nm Al layers (total, between MLI and micro-meteoroid filter)
+    #   - detector dead layers
+    #   - SDD QE (i.e., detector absrp efficiency)
+    # https://github.com/yuri-evangelista/CodedMasks/blob/main/mask_050_1040x17/Effective_area_and_Sens_2D.ipynb
+    corrs: dict[str, float] = {
+        'Kapton_layer': 0.98945,
+        'Be_layer': 0.99527,
+        'Al_layer': 0.99614,
+        'dead_layers': 0.974,
+        'QE': 0.999,
+    }
+    qe_factor: float = np.prod(np.array(list(corrs.values())))
+    # pixel area in [cm^2]
+    pixel_area: float = (
+        1e-2 * camera.specs.mask_deltax * camera.specs.mask_deltay / np.prod(camera.upscale_f)
+    )
+    return qe_factor * pixel_area
+
+
+def get_effective_area(
+    camera: CodedMaskCamera,
+    shift_x: float,
+    shift_y: float,
+    vignetting: bool = True,
+) -> float:
+    """
+    Computes the source effective area on detector in [cm^2].
+
+    Args:
+        camera (CodedMaskCamera):
+            Instance with camera geometry info.
+        shift_x (float):
+            Source coord along fine direction in camera local-frame system.
+        shift_y (float):
+            Source coord along coarse direction in camera local-frame system.
+        vignetting (bool, optional (default=`True`)):
+            If `True`, the source model will simulate mask vignetting effects.
+    
+    Returns:
+        output (float):
+            Source effective area value on detector in [cm^2].
+    """
+    # mask pattern projection WTO detector sp. res.
+    sg = _mask_pattern_projection(
+        camera, shift_x, shift_y, vignetting, False,
+    )
+    # extract detector
+    i_min, i_max, j_min, j_max = _detector_footprint_cached(camera)
+    detector = sg[i_min:i_max, j_min:j_max]
+    detector *= camera.bulk
+    return detector.sum() * camera_area_unit(camera)
+
+
 def compute_parameters(
     log: Log,
     camera: CodedMaskCamera,
     sdl: DataLoader,
-    *,
     vignetting: bool = True,
-    psfy: bool = True,
 ) -> Log:
     """
     Computes parameters for IROS reconstructed candidates.
@@ -89,20 +171,13 @@ def compute_parameters(
         sdl (DataLoader):
             Data container instance for chosen LEM-X coded-mask camera.
         vignetting (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate vignetting.
-        psfy (bool, optional (default=`True`)):
-            If `True`, the model used for optimization will simulate detector
-            position reconstruction effects.
+            If `True`, the source model will simulate mask vignetting effects.
 
     Returns:
         output (Log):
             Log instance with computed parameters for each candidate.
     """
-    # retrieve observation data (px area [cm^2], camera exposure [s])
-    UPX, UPY = camera.upscale_f
-    PX_AREA = (
-        1e-2 * camera.specs.mask_deltax * camera.specs.mask_deltay / np.prod((UPX, UPY))
-    )
+    # retrieve observation exposure [s] and IROS data
     EXPOSURE = sdl.header["EXPOSURE"]
     
     shifts_x, dshifts_x = log.log['shift_x'], log.log['dshift_x']
@@ -120,27 +195,6 @@ def compute_parameters(
         LogEntry('flux', 'D', 'ph/cm2/s'), LogEntry('dflux', 'D', 'ph/cm2/s'),
     )
     log.insert(params)
-
-    # helper functions
-    def eq_coords_errors(
-        shiftx: float, dshiftx: float,
-        shifty: float, dshifty: float,
-    ) -> tuple[float, float]:
-        """Computes RA/DEC source errors."""
-        # TODO: compute errs from transform
-        raise NotImplementedError
-    
-    def effective_area(shiftx: float, shifty: float) -> float:
-        """Computes detector area seen by the source."""
-        # mask pattern processing
-        sg = _mask_pattern_projection(
-            camera, shiftx, shifty, vignetting, psfy,
-        )
-        # extract mask pattern projection on detector
-        i_min, i_max, j_min, j_max = _detector_footprint_cached(camera)
-        detector = sg[i_min:i_max, j_min:j_max]
-        detector *= camera.bulk
-        return detector.sum() * PX_AREA
 
     # compute parameters
     y, x = zip(
@@ -180,6 +234,7 @@ def compute_parameters(
     log.add_entry_values('rate', rates)
     log.add_entry_values('drate', drates)
 
+    effective_area = lambda sx, sy: get_effective_area(camera, sx, sy, vignetting)
     fluxes = [
         f / (effective_area(sx, sy) * EXPOSURE) for f, sx, sy in zip(fluences, shifts_x, shifts_y)
     ]
