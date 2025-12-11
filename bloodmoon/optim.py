@@ -347,6 +347,17 @@ def process_skyimg(
 ) -> npt.NDArray:
     """
     Processes the sky image for optimisation.
+    Specifically, it crops the input sky 2D array around the extracted
+    source position with an extension proportional to the system source
+    PSF, and then it flattens the cropped array.
+
+    Args:
+        camera: CodedMaskCamera intance with system geometry info.
+        sky: 2D array representing the sky image.
+        pos: Pixel indexes for the cropping.
+    
+    Returns:
+        output: 1D source-cropped and flattened sky image.
     """
     # here we crop the source PSF slit plus an offset to account for
     # shifts and to accomodate the `curve_fit` optimisation
@@ -416,7 +427,7 @@ def optimize(
     arg_sky: tuple[int, int],
     vignetting: bool = True,
     psfy: bool = True,
-    verbose: bool = True,
+    verbose: bool = False,
 ) -> tuple[float, float, float]:
     """
     Performs the optimization to fit a point source model to sky image data.
