@@ -736,7 +736,7 @@ def slices_plot(
 
     def phase(x: NDArray) -> NDArray:
         """Centers x-axis values around zero."""
-        return np.arange(len(x)) - len(x) // 2 - 0.5
+        return np.arange(len(x) + 1) - len(x) // 2 - 0.5
     
     cropped = tuple(
         crop(s, pos, crp, strict=False) for s in (
@@ -824,17 +824,17 @@ def skyfield_map(
         'err_x': 'dangle_x',
         'y': 'angle_y',
         'err_y': 'dangle_y',
-        'xlabel': 'local-frame $\\theta_{x}$ [deg]',
-        'ylabel': 'local-frame $\\theta_{y}$ [deg]',
-        'title': f'{log.name} SkyMap-Grid',
+        'xlabel': '$\\theta_{fine}$ [deg]',
+        'ylabel': '$\\theta_{coarse}$ [deg]',
+        'title': f'{log.name} Local Frame SkyMap Grid',
 
         'ancor': (skyx[0], skyy[0]),
         'width': skyx[-1] - skyx[0],
         'height': skyy[-1] - skyy[0],
-        'color': 'k',
+        'color': '#120E16',
         'txt_color': 'white',
         'rot': 35,
-        'errbox_color': 'OrangeRed',
+        'errbox_color': 'Orange',
         'alpha': 0.5,
 
         'xline': ((skyx[0], skyx[-1]), (0, 0)),
@@ -853,7 +853,7 @@ def skyfield_map(
     ax.add_patch(
         Rectangle(
             xy=SETUP['ancor'], width=SETUP['width'], height=SETUP['height'],
-            linewidth=0.1, edgecolor='k', facecolor=SETUP['color'],
+            linewidth=0.1, edgecolor=SETUP['color'], facecolor=SETUP['color'],
         )
     )
     for line in ('xline', 'yline'):
