@@ -7,7 +7,7 @@ import warnings
 from pathlib import Path
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import NDArray, ArrayLike
 import matplotlib as mpl
 from matplotlib.patches import Rectangle
 from matplotlib.figure import Figure
@@ -189,12 +189,18 @@ class DSPlot:
         )
 
     @staticmethod
-    def config_ticks(ax: Axes) -> None:
+    def config_ticks(
+        ax: Axes,
+        xticks: ArrayLike | None = None,
+        yticks: ArrayLike | None = None,
+    ) -> None:
         """
         Configures grid and tick properties for the specified Axes.
 
         Args:
             ax (Axes): Plot Axes object to configure.
+            xticks (ArrayLike | None): Ticks values for the x axis.
+            yticks (ArrayLike | None): Ticks values for the y axis.
         """
         ax.grid(
             visible=True, color=PLOTPARAMS['grid_color'], linestyle=PLOTPARAMS['grid_ls'],
@@ -206,6 +212,8 @@ class DSPlot:
             which='both', direction='in', width=PLOTPARAMS['ticks_w'],
             length=PLOTPARAMS['ticks_len_major'] if 'major' else PLOTPARAMS['ticks_len_minor'],
         )
+        if xticks is not None: ax.set_xticks(xticks)
+        if yticks is not None: ax.set_yticks(yticks)
 
     @staticmethod
     def config_axscale(
