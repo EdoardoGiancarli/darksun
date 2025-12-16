@@ -11,7 +11,7 @@ import time
 import numpy as np
 
 __all__ = [
-    "timer", "benchmark_func", "savefig_to",
+    "timer", "benchmark_func", "savefile_to",
 ]
 
 
@@ -91,38 +91,34 @@ def benchmark_func(
     return average, error, result
 
 
-def savefig_to(
-    figpath: str | Path,
+def savefile_to(
+    path: str | Path,
     name: str,
     frmt: str = 'png',
     overwrite: bool = False,
 ) -> str | Path | None:
     """
-    Creates the filepath to save a Figure with the chosen format.
-    The func checks if the image file already exists. If so, and
+    Creates the filepath to save a generic file with the chosen format.
+    The func checks if the input file already exists. If so, and
     `overwrite` is False, `None` is returned to avoid overwriting.
 
     Args:
-        figpath (str | Path):
-            Directory path to save the image file, e.g., `'../data'`.
+        path (str | Path):
+            Directory path to save the file, e.g., `'../data'`.
         name (str):
-            Name of the image file, e.g., `'img_data`.
+            Name of the file, e.g., `'img_data`.
         frmt (str, optional (default=`'png'`)):
-            Format with which the image will be saved.
+            Format with which the file will be saved.
         overwrite (bool, optional (default=`False`)):
-            If `True`, the already saved image will be overwrited.
+            If `True`, the already saved file will be overwrited.
 
     Returns:
         output (str | Path | None):
-            Path for saving the image file. If the file is already
+            Path for saving the file. If the file is already
             present and `overwrite` is False, `None` is returned.
-    """
-    def is_img(filepath: Path) -> bool:
-        """Checks if a file has been already saved."""
-        return filepath.is_file()
-    
-    filepath = f'{figpath}/{name}.{frmt}'
-    if is_img(Path(filepath)) and not overwrite:
+    """    
+    filepath = f'{path}/{name}.{frmt}'
+    if Path(filepath).is_file() and not overwrite:
         return None
     return filepath
 

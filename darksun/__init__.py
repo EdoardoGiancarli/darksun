@@ -72,7 +72,7 @@ from .benchmarking import reconstruction_sources_heatmaps
 
 from .utils import timer
 from .utils import benchmark_func
-from .utils import savefig_to
+from .utils import savefile_to
 
 
 # end

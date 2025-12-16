@@ -21,7 +21,7 @@ from .data import Log, CatalogueLoader, DataLoader
 from .filtering import select_source_photons
 from .images import crop, upscale
 from .show import map4image, image_plot, slices_plot
-from .utils import savefig_to
+from .utils import savefile_to
 
 __all__ = [
     "dict2df", "config_distr_limits", "pixels_angular_resolution",
@@ -414,7 +414,7 @@ def reconstructed_sources_profiles(
             labels=('True', 'IROS'),
             cameraID=log.name,
             save_to=(
-                savefig_to(save_to, f'{source.upper()}_profile_{log.name.upper()}')
+                savefile_to(save_to, f'{source.upper()}_profile_{log.name.upper()}')
                 if save_to is not None else None
             ),
         )
@@ -427,7 +427,7 @@ def reconstructed_sources_profiles(
             ylabel='residues [ph]',
             cameraID=log.name,
             save_to=(
-                savefig_to(save_to, f'{source.upper()}_profile_res_{log.name.upper()}')
+                savefile_to(save_to, f'{source.upper()}_profile_res_{log.name.upper()}')
                 if save_to is not None else None
             ),
         )
@@ -513,7 +513,7 @@ def reconstruction_sources_heatmaps(
                 },
             ),
             save_to=(
-                savefig_to(save_to, f'{source.upper()}_resHM_{log.name.upper()}')
+                savefile_to(save_to, f'{source.upper()}_resHM_{log.name.upper()}')
                 if save_to is not None else None
             ),
         )
