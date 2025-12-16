@@ -22,9 +22,9 @@ from .data import Log
 from .images import crop
 
 __all__ = [
-    "DSPlot", "map4plot", "plot", "distr_plot",
-    "map4image", "image_plot", "slices_plot",
-    "skyfield_map",
+    "DSPlot", "set_figures_darkbkg",
+    "map4plot", "plot", "map4image", "image_plot",
+    "distr_plot", "slices_plot", "skyfield_map",
 ]
 
 
@@ -248,6 +248,22 @@ class DSPlot:
         """
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
+
+
+def set_figures_darkbkg(
+    color: str = '#120E16',
+) -> None:
+    """
+    Configures figure facecolor for figures with dark bkg.
+    """
+    plt.style.use('dark_background')
+    RCPARAMS = {
+        'figure.facecolor': color,
+        'axes.facecolor': color,
+        'savefig.facecolor': color,
+    }
+    mpl.rcParams.update(RCPARAMS)
+    return None
 
 """                               
                                              █████████████                     
