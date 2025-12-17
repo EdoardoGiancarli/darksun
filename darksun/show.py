@@ -251,18 +251,20 @@ class DSPlot:
 
 
 def set_figures_darkbkg(
-    color: str = '#120E16',
+    facecolor: str = '#120E16',
+    txt_color: str = "#FFFFFF",
 ) -> None:
     """
     Configures figure facecolor for figures with dark bkg.
     """
     plt.style.use('dark_background')
-    RCPARAMS = {
-        'figure.facecolor': color,
-        'axes.facecolor': color,
-        'savefig.facecolor': color,
+    updated_rc = {
+        'figure.facecolor': facecolor,
+        'axes.facecolor': facecolor,
+        'savefig.facecolor': facecolor,
     }
-    mpl.rcParams.update(RCPARAMS)
+    mpl.rcParams.update(updated_rc)
+    PLOTPARAMS['txt_color'] = txt_color
     return None
 
 """                               
