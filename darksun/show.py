@@ -52,7 +52,7 @@ PLOTPARAMS = {
     'title_fs': 14,
     'label_fs': 12,
     'label_fw': 'bold',
-    'alpha': 0.75,
+    'alpha': 0.95,
     'grid_color': 'lightgray',
     'grid_ls': '-',
     'grid_lw': 0.2,
@@ -890,42 +890,41 @@ def skyfield_map(
         log.log[SETUP['x']], log.log[SETUP['y']], c=None,
         edgecolor='LawnGreen', alpha=SETUP['alpha'], s=10,
     )
-    if any((show_IDs, show_coords, show_errbox)):
-            if show_IDs:
-                for name, x, y in zip(
-                    log.log['ID'],
-                    log.log[SETUP['x']],
-                    log.log[SETUP['y']],
-                ):
-                    ax.text(
-                        x + 0.475, y + 0.385, name, color=SETUP['txt_color'], rotation=SETUP['rot'],
-                        fontsize=0.95*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
-                    )
-            if show_coords:
-                for x, y, ra, dec in zip(
-                    log.log[SETUP['x']],
-                    log.log[SETUP['y']],
-                    log.log['ra'],
-                    log.log['dec'],
-                ):
-                    ax.text(
-                        x - 5, y - 0.5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
-                        rotation=SETUP['rot'], fontsize=0.95*PLOTPARAMS['txt_body_fs'],
-                        fontweight=PLOTPARAMS['txt_fw'],
-                    )
-            if show_errbox:
-                for x, dx, y, dy in zip(
-                    log.log[SETUP['x']],
-                    log.log[SETUP['err_x']],
-                    log.log[SETUP['y']],
-                    log.log[SETUP['err_y']],
-                ):
-                    ax.add_patch(
-                        Rectangle(
-                            xy=(x - dx, y - dy), width=2 * dx, height=2 * dy,
-                            linewidth=0.2, edgecolor=SETUP['errbox_color'], facecolor=None,
-                        )
-                    )
+    if show_IDs:
+        for name, x, y in zip(
+            log.log['ID'],
+            log.log[SETUP['x']],
+            log.log[SETUP['y']],
+        ):
+            ax.text(
+                x + 0.475, y + 0.385, name, color=SETUP['txt_color'], rotation=SETUP['rot'],
+                fontsize=0.95*PLOTPARAMS['txt_body_fs'], fontweight=PLOTPARAMS['txt_fw'],
+            )
+    if show_coords:
+        for x, y, ra, dec in zip(
+            log.log[SETUP['x']],
+            log.log[SETUP['y']],
+            log.log['ra'],
+            log.log['dec'],
+        ):
+            ax.text(
+                x - 5, y - 0.5, f'RA: {ra:.4f}\nDEC: {dec:.4f}', color=SETUP['txt_color'],
+                rotation=SETUP['rot'], fontsize=0.95*PLOTPARAMS['txt_body_fs'],
+                fontweight=PLOTPARAMS['txt_fw'],
+            )
+    if show_errbox:
+        for x, dx, y, dy in zip(
+            log.log[SETUP['x']],
+            log.log[SETUP['err_x']],
+            log.log[SETUP['y']],
+            log.log[SETUP['err_y']],
+        ):
+            ax.add_patch(
+                Rectangle(
+                    xy=(x - dx, y - dy), width=2 * dx, height=2 * dy,
+                    linewidth=0.2, edgecolor=SETUP['errbox_color'], facecolor=None,
+                )
+            )
 
     dsp.config_axlim(ax, SETUP['xlim'], SETUP['ylim'])
     if save_to is not None: fig.savefig(save_to)
