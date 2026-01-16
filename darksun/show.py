@@ -720,6 +720,7 @@ def slices_plot(
     ylim_xslice: tuple[Any, Any] | None = None,
     ylim_yslice: tuple[Any, Any] | None = None,
     labels: str | Sequence[str | None] | None = None,
+    color: str | Sequence[str] | None = None,
     cameraID: str | None = None,
     save_to: str | Path | None = None,
     **kwargs: Any,
@@ -749,6 +750,9 @@ def slices_plot(
             Y-axis limits for the y-axis slice plot.
         labels (str | Sequence[str | None] | None, optional (default=`None`)):
             Labels for each 2D array slice, used in the legend.
+        color (str | Sequence[str] | None, optional (default=`None`)):
+            The color for the data series. A single color string (e.g., 'blue') applies to
+            all series. A sequence of color strings styles each series individually.
         cameraID (str | None, optional (default=`None`)):
             ID for the LEM-X coded-mask camera unit.
         save_to (str | Path | None, optional (default=`None`)):
@@ -756,10 +760,6 @@ def slices_plot(
         **kwargs (Any):
             Additional keyword arguments for the `plot` function.
     """
-    colors_ = (
-        'OrangeRed', 'DodgerBlue', 'm', 'Lawngreen',
-    )
-
     def phase(x: NDArray) -> NDArray:
         """Centers x-axis values around zero."""
         return np.arange(len(x) + 1) - len(x) // 2 - 0.5
@@ -785,7 +785,7 @@ def slices_plot(
         labels=labels,
         x=map(phase, xslice),
         style='stairs',
-        color=colors_,
+        color=color,
         ylim=ylim_xslice or (None, None),
     )
     dmapy = map4plot(
@@ -796,7 +796,7 @@ def slices_plot(
         labels=labels,
         x=map(phase, yslice),
         style='stairs',
-        color=colors_,
+        color=color,
         ylim=ylim_yslice or (None, None),
     )
     plot(
