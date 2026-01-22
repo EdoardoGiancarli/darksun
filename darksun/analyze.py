@@ -78,41 +78,6 @@ def eq_coords_errors(
     raise NotImplementedError
 
 
-@lru_cache(maxsize=1)
-def camera_area_unit(camera: CodedMaskCamera) -> float:
-    """
-    Computes the detector unit area value in [cm^2], corrected for
-    the camera layers and detectors efficiency photons absorption.
-
-    Args:
-        camera (CodedMaskCamera): Instance with camera geometry info.
-    
-    Returns:
-        output (float): Camera pixel area value in [cm^2].
-    """
-    # LEM-X camera layers and detector efficiency correction factors
-    # here we consider the absorption action of (photons absorption @ 8keV):
-    #   - 12.5um Kapton layer (coded-mask camera MLI)
-    #   - 25um Be layer (micro-meteoroid filter)
-    #   - 300nm Al layers (total, between MLI and micro-meteoroid filter)
-    #   - detector dead layers
-    #   - SDD QE (i.e., detector absrp efficiency)
-    # https://github.com/yuri-evangelista/CodedMasks/blob/main/mask_050_1040x17/Effective_area_and_Sens_2D.ipynb
-    corrs: dict[str, float] = {
-        'Kapton_layer': 0.98945,
-        'Be_layer': 0.99527,
-        'Al_layer': 0.99614,
-        'dead_layers': 0.974,
-        'QE': 0.999,
-    }
-    qe_factor: float = np.prod(np.array(list(corrs.values())))
-    # pixel area in [cm^2]
-    pixel_area: float = (
-        1e-2 * camera.specs.mask_deltax * camera.specs.mask_deltay / np.prod(camera.upscale_f)
-    )
-    return qe_factor * pixel_area
-
-
 def get_effective_area(
     camera: CodedMaskCamera,
     shift_x: float,
@@ -136,6 +101,10 @@ def get_effective_area(
         output (float):
             Source effective area value on detector in [cm^2].
     """
+    # pixel area in [cm^2]
+    pixel_area: float = (
+        1e-2 * camera.specs.mask_deltax * camera.specs.mask_deltay / np.prod(camera.upscale_f)
+    )
     # mask pattern projection WTO detector sp. res.
     sg = _mask_pattern_projection(
         camera, shift_x, shift_y, vignetting, False,
@@ -144,7 +113,7 @@ def get_effective_area(
     i_min, i_max, j_min, j_max = _detector_footprint_cached(camera)
     detector = sg[i_min:i_max, j_min:j_max]
     detector *= camera.bulk
-    return detector.sum() * camera_area_unit(camera)
+    return detector.sum() * pixel_area
 
 
 def compute_parameters(
