@@ -412,6 +412,7 @@ def reconstructed_sources_profiles(
             crp=crp,
             source=source,
             labels=('True', 'IROS'),
+            color=('OrangeRed', 'DeepSkyBlue'),
             cameraID=log.name,
             save_to=(
                 savefile_to(save_to, f'{source.upper()}_profile_{log.name.upper()}')
@@ -424,6 +425,7 @@ def reconstructed_sources_profiles(
             crp=crp,
             source=source,
             labels=('', 'true - IROS'),
+            color=('OrangeRed', 'DeepSkyBlue'),
             ylabel='residues [ph]',
             cameraID=log.name,
             save_to=(
