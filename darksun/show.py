@@ -690,7 +690,8 @@ def image_plot(
             pad=PLOTPARAMS[f'cbar_pad_{dmap['cbarloc']}'],
         )
         cbar.ax.tick_params(labelsize=PLOTPARAMS['cbar_ticks_ls'])
-        cbar.formatter.set_powerlimits(PLOTPARAMS['cbar_scilim'])
+        if ('norm' not in tuple(kwargs_.keys())) or (kwargs_['norm'] != 'log'):
+            cbar.formatter.set_powerlimits(PLOTPARAMS['cbar_scilim'])
         if dmap['cbarlabel']:
             cbar.set_label(
                 dmap['cbarlabel'], fontsize=PLOTPARAMS['cbar_label_fs'], fontweight=PLOTPARAMS['cbar_label_fw'],
