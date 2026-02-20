@@ -188,8 +188,13 @@ def apply_vignetting(
         # the mask thickness projection has to be corrected by considering the
         # erosion pixel start point, due to the discretisation of the projection
         # https://github.com/yuri-evangelista/CodedMasks/blob/main/mask_050_1040x17/new_erosion_20251024.ipynb
-        bin_erosion_start = (1.0 - abs(shift_px - int(shift_px))) * bin_dim
-        return proj + np.sign(proj) * bin_erosion_start
+        # if the erosion is positive, it has to start from the left bin edge;
+        # if negative, it has to start from the right edge of the bin
+        bin_erosion_start = (
+            abs(shift_px - int(shift_px)) if (shift_px > 0)
+            else abs(shift_px - int(shift_px)) - 1.0
+        )
+        return proj + bin_erosion_start * bin_dim
     
     bins = camera.bins_detector
     bin_dim_x, bin_dim_y = (
@@ -360,19 +365,29 @@ def process_skyimg(
         output: 1D source-cropped and flattened sky image.
     """
     # here we crop the source PSF slit plus an offset to account for
-    # shifts and to accomodate the `curve_fit` optimisation
+    # shifts and to accomodate the `curve_fit` optimisation:
+    #   - along y (coarse dir) we insert an offset of `5 * upscaling`, which
+    #     is ~ 1/6 of the upsampled PSF slit dimension;
+    #   - along x (fine dir) we insert an offset of `2 + upscaling`, to
+    #     avoid the bkg contributes from the surrounding pixels;
     # NOTE: if the offset is smaller than at least the shifts bounds in
     # `optimize()`, the optimisation procedure may fail for some sources
-    cropy, cropx = (
-        int(camera.specs.slit_deltay * camera.upscale_f.y / camera.specs.mask_deltay) + 5,
-        int(camera.specs.slit_deltax * camera.upscale_f.x / camera.specs.mask_deltax) + 7,
+    psf_slit_px_y, psf_slit_px_x = (
+        int(camera.specs.slit_deltay * camera.upscale_f.y / camera.specs.mask_deltay),
+        int(camera.specs.slit_deltax * camera.upscale_f.x / camera.specs.mask_deltax),
     )
+    offset_y, offset_x = (
+        5 * camera.upscale_f.y, 2 + camera.upscale_f.x,
+    )
+
     i, j = pos
-    slicey, slicex = (
-        slice(i - cropy, i + cropy + 1),
-        slice(j - cropx, j + cropx + 1),
+    crop_y, crop_x = (
+        psf_slit_px_y + offset_y, psf_slit_px_x + offset_x,
     )
-    cropped = sky[slicey, slicex]
+    slice_y, slice_x = (
+        slice(i - crop_y, i + crop_y + 1), slice(j - crop_x, j + crop_x + 1),
+    )
+    cropped = sky[slice_y, slice_x]
     return cropped.flatten()
 
 
@@ -428,6 +443,7 @@ def optimize(
     vignetting: bool = True,
     psfy: bool = True,
     verbose: bool = False,
+    camera_coding_power: float = 0.85
 ) -> tuple[float, float, float]:
     """
     Performs the optimization to fit a point source model to sky image data.
@@ -459,8 +475,6 @@ def optimize(
         camera.specs.mask_deltax / camera.upscale_f.x,
         camera.specs.mask_deltay / camera.upscale_f.y,
     )
-    camera_coding_power = 0.85
-
     model_shift_flux = _ModelShiftFluence(camera, arg_sky, vignetting, psfy)
     sx_start, sy_start = pos2shift(camera, *arg_sky)
     sky_peak = sky[*arg_sky]
